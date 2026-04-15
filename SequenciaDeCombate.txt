@@ -1,0 +1,63 @@
+sequenceDiagram
+    actor U as Usuario
+    participant Par as Partida
+    participant P as Personaje
+    participant E as Enemigo
+
+    Note over U, E: --- Fase de Inicialización ---
+    U->>Par: iniciarJuego()
+    Par->>P: obtenerEstadisticas()
+    P-->>Par: hp, velocidad, paMax
+    Par->>E: obtenerEstadisticas()
+    E-->>Par: hp, velocidad, paMax
+    Par->>Par: ordenarTurnosPorVelocidad()
+
+    loop Mientras P.hp > 0 y E.hp > 0
+        Note over U, E: --- Turno del Jugador ---
+        
+        %% El Usuario interactúa con la Partida, no directo con el Personaje
+        alt Opción: Atacar Básico
+            U->>Par: procesarAccion("Atacar")
+            Par->>P: calcularDañoBase()
+            P-->>Par: dañoFisico
+            Par->>E: recibirDaño(dañoFisico)
+            E-->>Par: hpRestante
+            
+        else Opción: Usar Habilidad
+            U->>Par: procesarAccion("Habilidad", costoPA)
+            Par->>Par: verificarPA(costoPA)
+            
+            %% Condicional anidado para verificar los PA
+            alt Tiene PA suficiente
+                Par->>P: consumirPA(costoPA)
+                Par->>P: calcularDañoHabilidad()
+                P-->>Par: dañoEspecial
+                Par->>E: recibirDaño(dañoEspecial)
+                E-->>Par: hpRestante
+            else No tiene PA suficiente
+                Par-->>U: mostrarError("PA Insuficientes")
+            end
+            
+        else Opción: Defenderse
+            U->>Par: procesarAccion("Defender")
+            Par->>P: activarDefensa()
+            P-->>Par: confirmacionDefensa
+        end
+
+        %% Comprobación de muerte del enemigo manejada por Partida
+        break Si Enemigo es derrotado (E.hp <= 0)
+            Par-->>U: mostrarPantallaVictoria()
+        end
+        
+        Note over U, E: --- Turno del Enemigo ---
+        %% La partida le pide al enemigo que decida su jugada, y luego la aplica al personaje
+        Par->>E: decidirAccionIA()
+        E-->>Par: accionYDaño
+        Par->>P: recibirDaño(dañoCalculado)
+        P-->>Par: hpRestante
+        
+        %% Comprobación de muerte del personaje
+        break Si Personaje es derrotado (P.hp <= 0)
+            Par-->>U: mostrarPantallaDerrota()
+        end
+    end

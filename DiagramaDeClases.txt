@@ -1,0 +1,240 @@
+classDiagram
+    class Partida {
+        -estado: EstadoPartida
+        -turnoActual: int
+        +iniciarJuego()
+        +procesarAccion(accion: String)
+        +guardarPartida()
+        +cargarPartida()
+    }
+
+    class Mapa {
+        -nodos: List~NodoMapa~
+        -nodoActual: NodoMapa
+        +generarMapa(seed: long)
+        +getNodoActual() NodoMapa
+        +avanzar(nodo: NodoMapa)
+    }
+
+    class NodoMapa {
+        -tipo: TipoNodo
+        -conexiones: List~NodoMapa~
+        -visitado: boolean
+        +getTipo() TipoNodo
+        +getConexiones() List
+    }
+
+    class TipoNodo {
+        <<enumeration>>
+        COMBATE
+        ELITE
+        JEFE
+        TIENDA
+        DESCANSO
+        TESORO
+    }
+
+    class Party {
+        -personajes: List~Personaje~
+        -inventarioComun: Inventario
+        +agregarPersonaje(p: Personaje)
+        +estaViva() boolean
+        +getPersonajesVivos() List
+    }
+
+    class Personaje {
+        <<abstract>>
+        -nombre: String
+        -hp: int
+        -hpMax: int
+        -pa: int
+        -paMax: int
+        -ataque: int
+        -defensa: int
+        -velocidad: int
+        -nivel: int
+        -exp: int
+        +calcularDanoBase() int
+        +recibirDano(dmg: int)
+        +consumirPA(costo: int)
+        +activarDefensa()
+        +subirNivel()
+        +ganarExp(cantidad: int)
+    }
+
+    class Rogue {
+        -evasionActiva: boolean
+        +golpeFurtivo()
+        +envenenar()
+        +evasion()
+        +dobleAtaque()
+    }
+
+    class Paladin {
+        -escudoActivo: boolean
+        +golpeDivino()
+        +imposicionDeManos()
+        +escudoDeFe()
+        +castigoSagrado()
+    }
+
+    class Guerrero {
+        -rabia: int
+        +golpeBrutal()
+        +carga()
+        +gritoDeBatalla()
+        +torbellino()
+    }
+
+    class Enemigo {
+        <<abstract>>
+        -nombre: String
+        -hp: int
+        -ataque: int
+        -defensa: int
+        -velocidad: int
+        -expRecompensa: int
+        -oroRecompensa: int
+        +decidirAccionIA() Accion
+        +recibirDano(dmg: int)
+        +otorgarRecompensa() Recompensa
+    }
+
+    class Goblin {
+        +decidirAccionIA() Accion
+    }
+
+    class Esqueleto {
+        +decidirAccionIA() Accion
+    }
+
+    class Troll {
+        -regeneracion: int
+        +regenerar()
+        +decidirAccionIA() Accion
+    }
+
+    class Jefe {
+        -faseActual: int
+        -fasesHp: int[]
+        +cambiarFase()
+        +decidirAccionIA() Accion
+    }
+
+    class Batalla {
+        -combatientes: List~Combatiente~
+        -turnoIndex: int
+        +iniciarBatalla()
+        +ordenarPorVelocidad()
+        +procesarTurno()
+        +verificarFinBatalla() boolean
+        +distribuirRecompensas()
+    }
+
+    class Habilidad {
+        -nombre: String
+        -descripcion: String
+        -costoPa: int
+        -dano: int
+        -tipoObjetivo: TipoObjetivo
+        -efecto: EfectoEstado
+        +usar(usuario: Personaje, objetivo)
+        +getCostoPa() int
+    }
+
+    class Inventario {
+        -items: List~Item~
+        -capacidadMax: int
+        +agregarItem(item: Item)
+        +removerItem(item: Item)
+        +usarItem(item: Item, objetivo)
+    }
+
+    class Item {
+        <<abstract>>
+        -nombre: String
+        -descripcion: String
+        -rareza: Rareza
+        +getNombre() String
+    }
+
+    class Arma {
+        -bonusAtaque: int
+        -tipoDano: TipoDano
+        +getBonusAtaque() int
+    }
+
+    class Armadura {
+        -bonusDefensa: int
+        +getBonusDefensa() int
+    }
+
+    class Pocion {
+        -valor: int
+        -tipo: TipoPocion
+        +consumir(objetivo: Personaje)
+    }
+
+    class EfectoEstado {
+        <<abstract>>
+        -nombre: String
+        -duracionTurnos: int
+        +aplicar(objetivo: Personaje)
+        +tick(objetivo: Personaje)
+        +haExpirado() boolean
+    }
+
+    class Veneno {
+        -danoPorTurno: int
+        +tick(objetivo: Personaje)
+    }
+
+    class Escudo {
+        -absorcion: int
+        +aplicar(objetivo: Personaje)
+    }
+
+    class Aturdimiento {
+        +aplicar(objetivo: Personaje)
+    }
+
+    class Evasion {
+        -probabilidad: float
+        +aplicar(objetivo: Personaje)
+    }
+
+    class GestorGuardado {
+        -rutaArchivo: String
+        +guardar(partida: Partida)
+        +cargar() Partida
+        +existeGuardado() boolean
+    }
+
+    Partida "1" --> "1" Mapa
+    Partida "1" --> "1" Party
+    Partida "1" --> "0..1" Batalla
+    Partida --> GestorGuardado
+    Mapa "1" --> "*" NodoMapa
+    NodoMapa --> TipoNodo
+    Party "1" --> "1..3" Personaje
+    Party "1" --> "1" Inventario
+    Personaje <|-- Rogue
+    Personaje <|-- Paladin
+    Personaje <|-- Guerrero
+    Personaje "1" --> "*" Habilidad
+    Personaje "1" --> "*" EfectoEstado
+    Batalla "1" --> "*" Personaje
+    Batalla "1" --> "*" Enemigo
+    Enemigo <|-- Goblin
+    Enemigo <|-- Esqueleto
+    Enemigo <|-- Troll
+    Enemigo <|-- Jefe
+    Inventario "1" --> "*" Item
+    Item <|-- Arma
+    Item <|-- Armadura
+    Item <|-- Pocion
+    Habilidad --> EfectoEstado
+    EfectoEstado <|-- Veneno
+    EfectoEstado <|-- Escudo
+    EfectoEstado <|-- Aturdimiento
+    EfectoEstado <|-- Evasion

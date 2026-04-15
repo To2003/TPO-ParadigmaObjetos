@@ -1,0 +1,49 @@
+sequenceDiagram
+    actor U as Usuario
+    participant P as Partida
+    participant M as Mapa
+    participant N as NodoMapa
+    participant Ev as Evento
+
+    Note over U,Ev: Fase de navegacion del mapa
+    U-->>P: seleccionarNodo(nodo)
+    P->>M: validarMovimiento(nodoActual, nodo)
+    M-->>P: esValido: boolean
+
+    alt Movimiento invalido
+        P-->>U: mostrarError("Nodo no alcanzable")
+    else Movimiento valido
+        P->>M: avanzar(nodo)
+        M->>N: getTipo()
+        N-->>M: TipoNodo
+        M-->>P: TipoNodo
+
+        alt TipoNodo COMBATE o ELITE
+            P->>Ev: crearBatalla(party, enemigos)
+            Ev-->>P: resultado
+            alt Victoria
+                P->>P: distribuirExp()
+                P-->>U: mostrarRecompensas()
+            else Derrota
+                P-->>U: mostrarGameOver()
+            end
+        else TipoNodo JEFE
+            P->>Ev: crearBatallaJefe(party, jefe)
+            Ev-->>P: resultado
+            P-->>U: mostrarFinNivel()
+        else TipoNodo DESCANSO
+            P-->>U: mostrarOpcionesDescanso()
+            U->>P: elegirAccion(curar o mejorar)
+            P-->>U: confirmarDescanso()
+        else TipoNodo TIENDA
+            P-->>U: mostrarTienda(catalogo)
+            U->>P: comprarItem(item)
+            P-->>U: actualizarInventario()
+        else TipoNodo TESORO
+            P->>P: generarRecompensa()
+            P-->>U: mostrarTesoro(item)
+        end
+
+        P->>M: marcarVisitado(nodo)
+        P-->>U: actualizarVistaMapa()
+    end
