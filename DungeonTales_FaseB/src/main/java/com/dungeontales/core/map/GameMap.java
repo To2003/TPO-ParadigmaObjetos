@@ -6,9 +6,17 @@ import java.util.*;
 /** Mapa de nodos generado proceduralmente, estilo Slay the Spire. */
 public class GameMap implements Serializable {
 
-    private final List<List<MapNode>> rows = new ArrayList<>();
-    private MapNode currentNode;
-    private final int mapLevel;
+    // ── Serialized (persisted in JSON) ───────────────────────────────────
+    private final long   seed;
+    private final int    mapLevel;
+    private int          currentNodeRow = 0;
+    private int          currentNodeCol = 0;
+    // Coordenadas de cada nodo visitado vía advance() (no incluye el nodo inicio)
+    private List<int[]>  visitedNodes   = new ArrayList<>();
+
+    // ── Transient (reconstructed from seed after load) ────────────────────
+    private transient List<List<MapNode>> rows;
+    private transient MapNode             currentNode;
 
     // Distribución de tipos por fila (excluyendo fila de inicio y jefe)
     private static final MapNode.Type[][] ROW_POOLS = {
@@ -21,10 +29,35 @@ public class GameMap implements Serializable {
 
     public GameMap(int mapLevel, long seed) {
         this.mapLevel = mapLevel;
-        generate(seed);
+        this.seed     = seed;
+        generate();
     }
 
-    private void generate(long seed) {
+    // ── Rebuild after Gson deserialization ────────────────────────────────
+
+    /**
+     * Regenera el grafo desde el seed y reaplica el estado de visitas guardado.
+     * Se llama automáticamente la primera vez que se accede al grafo (lazy)
+     * y también explícitamente desde SaveManager tras deserializar.
+     */
+    public void postLoad() {
+        if (visitedNodes == null) visitedNodes = new ArrayList<>();
+        generate();
+        // Re-mark visited nodes (the start node is already marked inside generate())
+        for (int[] coords : visitedNodes) {
+            findNode(coords[0], coords[1]).markVisited();
+        }
+        currentNode = findNode(currentNodeRow, currentNodeCol);
+    }
+
+    private void ensureGraph() {
+        if (rows == null) postLoad();
+    }
+
+    // ── Graph generation ──────────────────────────────────────────────────
+
+    private void generate() {
+        rows = new ArrayList<>();
         Random rng = new Random(seed);
 
         // Fila 0: nodo de inicio
@@ -62,7 +95,6 @@ public class GameMap implements Serializable {
             List<MapNode> cur  = rows.get(r);
             List<MapNode> next = rows.get(r + 1);
             for (MapNode node : cur) {
-                // Cada nodo conecta a 1-2 nodos de la fila siguiente
                 MapNode primary = next.get(rng.nextInt(next.size()));
                 node.addNext(primary);
                 if (next.size() > 1 && rng.nextBoolean()) {
@@ -82,23 +114,40 @@ public class GameMap implements Serializable {
         }
     }
 
+    private MapNode findNode(int row, int col) {
+        return rows.get(row).stream()
+            .filter(n -> n.getCol() == col)
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException(
+                "Nodo no encontrado: fila=" + row + " col=" + col));
+    }
+
+    // ── Public API ────────────────────────────────────────────────────────
+
     /** Nodos disponibles desde la posición actual. */
     public List<MapNode> getAvailableNodes() {
+        ensureGraph();
         return currentNode.getNext().stream()
             .filter(n -> !n.isVisited())
             .toList();
     }
 
     public boolean advance(MapNode chosen) {
+        ensureGraph();
         if (!currentNode.getNext().contains(chosen)) return false;
         currentNode = chosen;
         currentNode.markVisited();
+        currentNodeRow = chosen.getRow();
+        currentNodeCol = chosen.getCol();
+        visitedNodes.add(new int[]{ chosen.getRow(), chosen.getCol() });
         return true;
     }
 
-    public MapNode getCurrentNode() { return currentNode; }
-    public List<List<MapNode>> getRows() { return Collections.unmodifiableList(rows); }
-    public int getMapLevel()         { return mapLevel; }
-    public boolean isBossDefeated()  { return currentNode.getType() == MapNode.Type.BOSS
-                                           && currentNode.isVisited(); }
+    public MapNode              getCurrentNode() { ensureGraph(); return currentNode; }
+    public List<List<MapNode>>  getRows()        { ensureGraph(); return Collections.unmodifiableList(rows); }
+    public int                  getMapLevel()    { return mapLevel; }
+    public boolean isBossDefeated() {
+        ensureGraph();
+        return currentNode.getType() == MapNode.Type.BOSS && currentNode.isVisited();
+    }
 }

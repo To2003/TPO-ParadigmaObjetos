@@ -54,8 +54,7 @@ public class EnemyCard extends JPanel {
         }
 
         setPreferredSize(new Dimension(cardW, cardH));
-        setOpaque(true);
-        setBackground(Theme.BG_DARK);
+        setOpaque(false);
         setLayout(new BorderLayout(0, 2));
         setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
 
@@ -66,31 +65,27 @@ public class EnemyCard extends JPanel {
         statsPanel.setLayout(new BoxLayout(statsPanel, BoxLayout.Y_AXIS));
         statsPanel.setBorder(BorderFactory.createEmptyBorder(2, 4, 4, 4));
 
-        JLabel nameLabel = new JLabel(enemy.getName());
+        JLabel nameLabel = new JLabel(enemy.getName(), SwingConstants.CENTER);
         nameLabel.setFont(Theme.labelFont(13f));
         nameLabel.setForeground(Theme.TEXT_ENEMY);
-        nameLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        hpLabel = new JLabel("HP " + enemy.getHp() + "/" + enemy.getHpMax());
-        hpLabel.setFont(Theme.bodyFont(11f));
-        hpLabel.setForeground(Theme.TEXT_SECONDARY);
-        hpLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         hpBar = new AnimatedBar(AnimatedBar.BarType.HP, enemy.getHpMax(), enemy.getHp());
-        hpBar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 7));
-        hpBar.setAlignmentX(Component.LEFT_ALIGNMENT);
+        hpBar.setMaximumSize(new Dimension(140, 6));
+        hpBar.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         actionHint = new JLabel("Próximo: ?");
         actionHint.setFont(Theme.bodyFont(10f));
         actionHint.setForeground(Theme.TEXT_MUTED);
-        actionHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        actionHint.setAlignmentX(Component.CENTER_ALIGNMENT);
 
+        hpLabel = new JLabel(); // Dummy para mantener compatibilidad con refresh
+
+        statsPanel.add(Box.createVerticalStrut(4));
         statsPanel.add(nameLabel);
         statsPanel.add(Box.createVerticalStrut(2));
-        statsPanel.add(hpLabel);
-        statsPanel.add(Box.createVerticalStrut(1));
         statsPanel.add(hpBar);
-        statsPanel.add(Box.createVerticalStrut(3));
+        statsPanel.add(Box.createVerticalStrut(2));
         statsPanel.add(actionHint);
 
         add(statsPanel, BorderLayout.SOUTH);
@@ -179,16 +174,16 @@ public class EnemyCard extends JPanel {
 
         int w = getWidth(), h = getHeight();
 
-        // Fondo
-        g2.setColor(Theme.BG_CARD_ENEMY);
-        g2.fillRoundRect(0, 0, w - 1, h - 1, 10, 10);
-
-        // Borde
-        Color borderColor = targeted && enemy.isAlive() ? Theme.BORDER_ACTIVE : Theme.BORDER_ENEMY;
-        g2.setColor(borderColor);
-        g2.setStroke(new BasicStroke(targeted ? 2.5f : 1f));
-        g2.drawRoundRect(0, 0, w - 1, h - 1, 10, 10);
-        g2.setStroke(new BasicStroke(1f));
+        // Halo rojo/dorado debajo cuando es objetivo seleccionado
+        if (targeted) {
+            g2.setPaint(new RadialGradientPaint(
+                new java.awt.geom.Point2D.Float(w / 2f, h - 60),
+                70f,
+                new float[]{0f, 1f},
+                new Color[]{new Color(200, 40, 40, 100), new Color(0,0,0,0)}
+            ));
+            g2.fillOval(w/2 - 70, h - 80, 140, 40);
+        }
 
         // Sprite
         int sx = (w - spriteW) / 2;
@@ -197,21 +192,17 @@ public class EnemyCard extends JPanel {
 
         // Overlay de muerto
         if (!enemy.isAlive()) {
-            g2.setColor(new Color(0, 0, 0, 170));
-            g2.fillRoundRect(0, 0, w, h, 10, 10);
-            g2.setColor(Theme.DMG_COLOR);
-            g2.setFont(Theme.labelFont(12f));
-            FontMetrics fm = g2.getFontMetrics();
-            String txt = "DERROTADO";
-            g2.drawString(txt, (w - fm.stringWidth(txt)) / 2, h / 2 + fm.getAscent() / 2);
-            return;
-        }
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.6f));
+            g2.setColor(Color.BLACK);
+            g2.fillRect(sx, sy, spriteW, spriteH);
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
 
-        // Halo dorado cuando es objetivo seleccionado
-        if (targeted) {
-            g2.setColor(new Color(200, 160, 60, 40));
-            g2.fillRoundRect(0, 0, w, h, 10, 10);
-            // borde pulsante (reemplazado por borde BORDER_ACTIVE ya dibujado)
+            g2.setColor(Theme.DMG_COLOR);
+            g2.setFont(Theme.labelFont(18f));
+            FontMetrics fm = g2.getFontMetrics();
+            String txt = "☠";
+            g2.drawString(txt, (w - fm.stringWidth(txt)) / 2, sy + spriteH / 2);
+            return;
         }
 
         // Flash de impacto

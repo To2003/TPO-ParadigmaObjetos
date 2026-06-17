@@ -65,7 +65,12 @@ public class SaveManager {
         try {
             if (!saveExists()) return null;
             String json = Files.readString(Paths.get(SAVE_FILE));
-            return GSON.fromJson(json, GameState.class);
+            GameState gs = GSON.fromJson(json, GameState.class);
+            // Reconstruir el grafo de nodos del mapa (Gson no preserva identidad de objetos)
+            if (gs != null && gs.getCurrentMap() != null) {
+                gs.getCurrentMap().postLoad();
+            }
+            return gs;
         } catch (Exception e) {
             System.err.println("Error al cargar guardado: " + e.getMessage());
             return null;

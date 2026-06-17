@@ -13,8 +13,12 @@ import com.dungeontales.util.SpriteLoader;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Pantalla de batalla principal.
@@ -43,20 +47,27 @@ public class BattleScreen extends JPanel {
     private final JLabel                turnLabel;
     private final JPanel                carouselPanel;
 
-    // Selección de objetivo
+    // Selección de enemigo
     private Enemy selectedEnemy = null;
+
+    // Targeting de aliado (pociones)
+    private enum TargetMode { NONE, WAITING_ALLY }
+    private TargetMode targetMode   = TargetMode.NONE;
+    private Potion     pendingPotion = null;
 
     // Timer para procesar eventos con delay visual
     private final List<BattleEvent> pendingEvents = new ArrayList<>();
     private Timer eventTimer;
+    private final java.awt.image.BufferedImage background;
 
     public BattleScreen(BattleEngine engine, List<Character> party,
-                        List<Enemy> enemies, Inventory inventory, Listener listener) {
+                        List<Enemy> enemies, Inventory inventory, String bgName, Listener listener) {
         this.engine   = engine;
         this.party    = party;
         this.enemies  = enemies;
         this.inventory = inventory;
         this.listener = listener;
+        this.background = com.dungeontales.util.SpriteLoader.getBackground(bgName);
 
         setBackground(Theme.BG_DARK);
         setLayout(new BorderLayout(0, 0));
@@ -85,8 +96,39 @@ public class BattleScreen extends JPanel {
         add(header, BorderLayout.NORTH);
 
         // ── Centro: party vs enemigos ─────────────────────────────────────
-        JPanel centerPanel = new JPanel(new GridBagLayout());
-        centerPanel.setBackground(Theme.BG_DARK);
+        JPanel centerPanel = new JPanel(new GridBagLayout()) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g;
+                int w = getWidth(), h = getHeight();
+                if (background != null) {
+                    int iw = background.getWidth(), ih = background.getHeight();
+                    double scale = Math.max((double) w / iw, (double) h / ih);
+                    int dw = (int)(iw * scale), dh = (int)(ih * scale);
+                    int dx = (w - dw) / 2, dy = (h - dh) / 2;
+                    g2.drawImage(background, dx, dy, dw, dh, null);
+                    // Dark overlay for readability
+                    g2.setColor(new Color(0, 0, 0, 110));
+                    g2.fillRect(0, 0, w, h);
+                } else {
+                    // Fondo atmosférico: gradiente radial simulado con capas
+                    g2.setColor(new Color(0x06, 0x08, 0x0E));
+                    g2.fillRect(0, 0, w, h);
+                    // Capa central más clara (iluminación de antorcha)
+                    for (int r = Math.max(w, h); r > 0; r -= 8) {
+                        float t = 1f - (float)r / Math.max(w, h);
+                        int alpha = (int)(t * t * 28);
+                        g2.setColor(new Color(0x5A, 0x38, 0x18, Math.min(alpha, 25)));
+                        g2.fillOval(w/2 - r, h/2 - r, r*2, r*2);
+                    }
+                }
+                // Viñeta oscura en bordes
+                for (int i = 0; i < 40; i++) {
+                    int alpha = (int)((float)i / 40 * 80);
+                    g2.setColor(new Color(0, 0, 0, alpha));
+                    g2.drawRect(i, i, w - i*2 - 1, h - i*2 - 1);
+                }
+            }
+        };
         centerPanel.setBorder(BorderFactory.createEmptyBorder(16, 16, 8, 16));
 
         GridBagConstraints gbc = new GridBagConstraints();
@@ -97,7 +139,7 @@ public class BattleScreen extends JPanel {
 
         // Party
         JPanel partyPanel = new JPanel(new GridBagLayout());
-        partyPanel.setBackground(Theme.BG_DARK);
+        partyPanel.setOpaque(false);
         GridBagConstraints pGbc = new GridBagConstraints();
         pGbc.anchor = GridBagConstraints.SOUTH;
         pGbc.insets = new Insets(0, 5, 0, 5);
@@ -107,16 +149,14 @@ public class BattleScreen extends JPanel {
             partyPanel.add(card, pGbc);
         }
 
-        // VS label
-        JLabel vsLabel = new JLabel("VS");
-        vsLabel.setFont(Theme.titleFont(22f));
-        vsLabel.setForeground(Theme.TEXT_MUTED);
-        vsLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        vsLabel.setPreferredSize(new Dimension(80, 320));
+        // Espaciador central (Reemplaza al emblema VS)
+        JPanel vsLabel = new JPanel();
+        vsLabel.setOpaque(false);
+        vsLabel.setPreferredSize(new Dimension(100, 10));
 
         // Enemigos
         JPanel enemyPanel = new JPanel(new GridBagLayout());
-        enemyPanel.setBackground(Theme.BG_DARK);
+        enemyPanel.setOpaque(false);
         GridBagConstraints eGbc = new GridBagConstraints();
         eGbc.anchor = GridBagConstraints.SOUTH;
         eGbc.insets = new Insets(0, 5, 0, 5);
@@ -144,11 +184,11 @@ public class BattleScreen extends JPanel {
 
         // ── Panel de acciones ─────────────────────────────────────────────
         actionPanel = new JPanel();
-        actionPanel.setBackground(Theme.BG_ACTION_BAR);
+        actionPanel.setBackground(new Color(0x0C, 0x08, 0x06));
         actionPanel.setLayout(new BoxLayout(actionPanel, BoxLayout.Y_AXIS));
         actionPanel.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(1, 0, 0, 0, Theme.SEPARATOR),
-            BorderFactory.createEmptyBorder(8, 12, 8, 12)
+            BorderFactory.createMatteBorder(2, 0, 0, 0, Theme.BORDER_ACTIVE),
+            BorderFactory.createEmptyBorder(6, 16, 6, 16)
         ));
 
         // Insertar entre log y borde sur
@@ -158,6 +198,16 @@ public class BattleScreen extends JPanel {
         southStack.add(log, BorderLayout.CENTER);
         remove(log);
         add(southStack, BorderLayout.SOUTH);
+
+        // Listeners de click en charCards para targeting de aliados
+        for (CharacterCard card : charCards) {
+            card.addMouseListener(new MouseAdapter() {
+                @Override public void mouseClicked(MouseEvent e) {
+                    if (targetMode == TargetMode.WAITING_ALLY)
+                        onAllySelected(card.getCharacter());
+                }
+            });
+        }
 
         // Timer de eventos: un evento cada 400ms para que se vean las animaciones
         eventTimer = new Timer(400, e -> processNextEvent());
@@ -293,63 +343,77 @@ public class BattleScreen extends JPanel {
 
     private void buildActionPanel() {
         actionPanel.removeAll();
-
         Object current = engine.getCurrentCombatant();
         if (!(current instanceof Character actor)) return;
-
-        // Highlight
         highlightActiveCharacter(actor.getName());
 
-        // Fila 1: info del turno
+        // Info row
         JPanel infoRow = new JPanel(new BorderLayout());
-        infoRow.setBackground(Theme.BG_ACTION_BAR);
-        infoRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
-
-        JLabel info = new JLabel("  Turno de " + actor.getName() +
-            "   PA: " + actor.getPa() + "/" + actor.getPaMax());
+        infoRow.setOpaque(false);
+        infoRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
+        JLabel info = new JLabel("  Turno de " + actor.getName()
+            + "   PA: " + actor.getPa() + "/" + actor.getPaMax());
         info.setFont(Theme.labelFont(11f));
         info.setForeground(Theme.TEXT_PRIMARY);
         infoRow.add(info, BorderLayout.WEST);
-
-        String targetTxt = selectedEnemy != null
+        String tTxt = selectedEnemy != null
             ? "Objetivo: " + selectedEnemy.getName() + "   "
-            : "Seleccioná un enemigo   ";
-        JLabel targetLbl = new JLabel(targetTxt);
-        targetLbl.setFont(Theme.bodyFont(11f));
-        targetLbl.setForeground(selectedEnemy != null ? Theme.TEXT_SECONDARY : Theme.TEXT_MUTED);
-        infoRow.add(targetLbl, BorderLayout.EAST);
-
+            : "↑  Seleccioná un enemigo   ";
+        JLabel tLbl = new JLabel(tTxt);
+        tLbl.setFont(Theme.bodyFont(11f));
+        tLbl.setForeground(selectedEnemy != null ? Theme.GOLD_COLOR : Theme.TEXT_MUTED);
+        infoRow.add(tLbl, BorderLayout.EAST);
         actionPanel.add(infoRow);
-        actionPanel.add(Box.createVerticalStrut(5));
+        actionPanel.add(Box.createVerticalStrut(4));
 
-        // Fila 2: botones de acción en grid visual
-        JPanel btns = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 5));
-        btns.setBackground(Theme.BG_ACTION_BAR);
-        btns.setAlignmentX(Component.LEFT_ALIGNMENT);
+        // 3-zone button row
+        JPanel row = new JPanel(new GridBagLayout());
+        row.setOpaque(false);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 86));
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.BOTH; gbc.weighty = 1.0;
 
-        // Ataque básico
-        JButton basicBtn = new JButton("Ataque basico  [0 PA]");
+        gbc.gridx = 0; gbc.weightx = 0.56; gbc.insets = new Insets(0, 0, 0, 6);
+        row.add(buildSkillsZone(actor), gbc);
+        gbc.gridx = 1; gbc.weightx = 0.30; gbc.insets = new Insets(0, 0, 0, 6);
+        row.add(buildConsumablesZone(), gbc);
+        gbc.gridx = 2; gbc.weightx = 0.14; gbc.insets = new Insets(0, 0, 0, 0);
+        row.add(buildEndTurnZone(), gbc);
+
+        actionPanel.add(row);
+        actionPanel.revalidate();
+        actionPanel.repaint();
+    }
+
+    /** Zona izquierda: ataque básico + habilidades en grilla de 3 columnas. */
+    private JPanel buildSkillsZone(Character actor) {
+        // Contar botones para calcular filas
+        int btnCount = 1 + actor.getAbilities().size(); // ataque + habilidades
+        int cols = 3;
+        JPanel zone = new JPanel(new GridLayout(0, cols, 4, 3));
+        zone.setOpaque(false);
+
+        JButton basicBtn = new JButton("⚔  Ataque  [0 PA]");
         Theme.styleAttackButton(basicBtn);
         basicBtn.setEnabled(selectedEnemy != null);
         basicBtn.addActionListener(e -> {
             if (selectedEnemy == null) { promptSelectEnemy(); return; }
             executeAction(engine.playerBasicAttack(selectedEnemy));
         });
-        btns.add(basicBtn);
+        zone.add(basicBtn);
 
-        // Habilidades
         for (Ability ab : actor.getAbilities()) {
             JButton btn = new JButton(ab.getName() + "  [" + ab.getPaCost() + " PA]");
             btn.setToolTipText(ab.getDescription());
             Theme.stylePAActionButton(btn);
             boolean canUse = actor.getPa() >= ab.getPaCost();
-            boolean needsTarget = ab.getTargetType() == Ability.TargetType.SINGLE_ENEMY
-                               || ab.getTargetType() == Ability.TargetType.ALL_ENEMIES;
-            btn.setEnabled(canUse && (!needsTarget || selectedEnemy != null));
+            boolean needsEnemy = ab.getTargetType() == Ability.TargetType.SINGLE_ENEMY
+                              || ab.getTargetType() == Ability.TargetType.ALL_ENEMIES;
+            btn.setEnabled(canUse && (!needsEnemy || selectedEnemy != null));
             if (!canUse) btn.setForeground(Theme.TEXT_MUTED);
-
             btn.addActionListener(e -> {
-                if (needsTarget && selectedEnemy == null) { promptSelectEnemy(); return; }
+                if (needsEnemy && selectedEnemy == null) { promptSelectEnemy(); return; }
                 Character allyTarget = null;
                 if (ab.getTargetType() == Ability.TargetType.SINGLE_ALLY) {
                     allyTarget = selectAllyDialog();
@@ -357,38 +421,132 @@ public class BattleScreen extends JPanel {
                 }
                 executeAction(engine.playerUseAbility(ab, selectedEnemy, allyTarget));
             });
-            btns.add(btn);
+            zone.add(btn);
+        }
+        // Relleno de celdas vacías para GridLayout uniforme
+        int remainder = btnCount % cols;
+        if (remainder != 0) for (int i = remainder; i < cols; i++) {
+            JPanel empty = new JPanel(); empty.setOpaque(false); zone.add(empty);
+        }
+        return zone;
+    }
+
+    /** Zona central: pociones agrupadas por tipo con indicador [xN]. */
+    private JPanel buildConsumablesZone() {
+        JPanel zone = new JPanel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setColor(new Color(0x06, 0x04, 0x0C, 170));
+                g2.fillRoundRect(0, 0, getWidth()-1, getHeight()-1, 8, 8);
+                g2.setColor(new Color(0x40, 0x28, 0x60, 100));
+                g2.setStroke(new BasicStroke(1f));
+                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 8, 8);
+            }
+        };
+        zone.setOpaque(false);
+        zone.setLayout(new FlowLayout(FlowLayout.LEFT, 4, 4));
+        zone.setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 6));
+
+        // Agrupar por tipo
+        Map<Potion.Effect, Integer> counts = new LinkedHashMap<>();
+        Map<Potion.Effect, Potion>  reps   = new LinkedHashMap<>();
+        for (Potion p : inventory.getPotions()) {
+            counts.merge(p.getEffect(), 1, Integer::sum);
+            reps.putIfAbsent(p.getEffect(), p);
         }
 
-        // Potions
-        List<Potion> potions = inventory.getPotions();
-        for (Potion p : potions) {
-            JButton btn = new JButton(p.getName() + "  [Item]");
-            Theme.styleItemButton(btn);
-            btn.setToolTipText(p.getDescription());
-            btn.addActionListener(e -> {
-                Character target = null;
-                if (p.getName().contains("Vida") || p.getName().contains("Revivir") || p.getName().contains("Antidoto")) {
-                    target = selectAllyDialog();
-                    if (target == null) return;
-                } else {
-                    target = actor;
-                }
-                inventory.removeItem(p);
-                executeAction(engine.playerUsePotion(p, target));
-            });
-            btns.add(btn);
+        if (counts.isEmpty()) {
+            JLabel empty = new JLabel("Sin consumibles");
+            empty.setFont(Theme.bodyFont(10f));
+            empty.setForeground(Theme.TEXT_MUTED);
+            zone.add(empty);
+        } else {
+            for (Potion.Effect fx : counts.keySet()) {
+                Potion rep = reps.get(fx);
+                int cnt = counts.get(fx);
+                JButton btn = new JButton(rep.getName() + "  [x" + cnt + "]");
+                Theme.styleItemButton(btn);
+                btn.setToolTipText(rep.getDescription());
+                btn.addActionListener(e -> enterAllyTargeting(rep));
+                zone.add(btn);
+            }
         }
+        return zone;
+    }
 
-        // Terminar turno
-        JButton endBtn = new JButton("Terminar turno");
+    /** Zona derecha: botón de terminar turno grande. */
+    private JPanel buildEndTurnZone() {
+        JPanel zone = new JPanel(new GridBagLayout());
+        zone.setOpaque(false);
+        JButton endBtn = new JButton("↷  Terminar turno");
         Theme.styleEndTurnButton(endBtn);
+        endBtn.setPreferredSize(new Dimension(148, 64));
         endBtn.addActionListener(e -> executeAction(engine.playerEndTurn()));
-        btns.add(endBtn);
+        zone.add(endBtn);
+        return zone;
+    }
 
-        actionPanel.add(btns);
+    // ── Targeting de aliados ───────────────────────────────────────────────
+
+    private void enterAllyTargeting(Potion potion) {
+        pendingPotion = potion;
+        targetMode    = TargetMode.WAITING_ALLY;
+        refreshTargetableCards();
+
+        // Reemplazar el panel de acciones con el prompt de targeting
+        actionPanel.removeAll();
+        JPanel prompt = new JPanel(new BorderLayout(12, 0));
+        prompt.setOpaque(false);
+        prompt.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+
+        JLabel msg = new JLabel("  → Elegí un aliado para usar:  " + potion.getName());
+        msg.setFont(Theme.labelFont(13f));
+        msg.setForeground(new Color(0x50, 0xE0, 0x80));
+        prompt.add(msg, BorderLayout.WEST);
+
+        JButton cancel = new JButton("Cancelar");
+        Theme.styleButton(cancel);
+        cancel.addActionListener(e -> { exitTargeting(); buildActionPanel(); });
+        prompt.add(cancel, BorderLayout.EAST);
+
+        actionPanel.add(Box.createVerticalGlue());
+        actionPanel.add(prompt);
+        actionPanel.add(Box.createVerticalGlue());
         actionPanel.revalidate();
         actionPanel.repaint();
+    }
+
+    private void exitTargeting() {
+        targetMode    = TargetMode.NONE;
+        pendingPotion = null;
+        charCards.forEach(c -> c.setTargetable(false));
+    }
+
+    private void refreshTargetableCards() {
+        boolean needsDead = pendingPotion != null
+            && pendingPotion.getEffect() == Potion.Effect.REVIVE;
+        charCards.forEach(c -> {
+            boolean valid = needsDead ? !c.getCharacter().isAlive()
+                                      :  c.getCharacter().isAlive();
+            c.setTargetable(valid);
+        });
+    }
+
+    private void onAllySelected(Character target) {
+        if (pendingPotion == null || targetMode != TargetMode.WAITING_ALLY) return;
+        boolean needsDead = pendingPotion.getEffect() == Potion.Effect.REVIVE;
+        if (needsDead && target.isAlive()) {
+            log.addMessage("El Elixir solo puede usarse en un aliado caído.", Theme.STUN_COLOR);
+            return;
+        }
+        if (!needsDead && !target.isAlive()) {
+            log.addMessage("Este ítem solo puede usarse en un aliado vivo.", Theme.STUN_COLOR);
+            return;
+        }
+        Potion pot = pendingPotion;
+        exitTargeting();
+        inventory.removeItem(pot);
+        executeAction(engine.playerUsePotion(pot, target));
     }
 
     private void executeAction(List<BattleEvent> events) {

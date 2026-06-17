@@ -4,7 +4,7 @@ import com.dungeontales.core.model.Ability;
 import com.dungeontales.core.model.StatusEffect;
 
 public class Rogue extends Character {
-    public Rogue(String name) { super(name, "Pícaro", 65, 12, 4, 18, 6, 20); }
+    public Rogue(String name) { super(name, "Pícaro", 65, 12, 4, 180000000, 6, 20); }
 
     @Override public String getSpriteName() { return "rogue"; }
 

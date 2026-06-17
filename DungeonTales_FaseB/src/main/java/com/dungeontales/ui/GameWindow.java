@@ -84,16 +84,7 @@ public class GameWindow extends JFrame {
                     "Guardar", JOptionPane.INFORMATION_MESSAGE);
             }
             @Override public void onPartyRequested() {
-                StringBuilder sb = new StringBuilder("=== Info de la Party ===\n\n");
-                for (com.dungeontales.core.model.character.Character c : state.getParty()) {
-                    sb.append(c.getName()).append(" (").append(c.getClassName())
-                      .append(" Nvl ").append(c.getLevel()).append(")\n");
-                    sb.append("HP: ").append(c.getHp()).append(" / ").append(c.getHpMax()).append("\n");
-                    sb.append("PA Max: ").append(c.getPaMax()).append(" (Regen: +").append(c.getPaRegen()).append("/turno)\n");
-                    sb.append("ATK: ").append(c.getEffectiveAtk()).append(" | DEF: ").append(c.getEffectiveDef())
-                      .append(" | SPD: ").append(c.getEffectiveSpd()).append("\n\n");
-                }
-                JOptionPane.showMessageDialog(GameWindow.this, sb.toString(), "Estado de la Party", JOptionPane.PLAIN_MESSAGE);
+                new PartyScreen(GameWindow.this, state).setVisible(true);
             }
         });
         cardPanel.add(map, SCREEN_MAP);
@@ -103,20 +94,20 @@ public class GameWindow extends JFrame {
 
     private void handleNode(MapNode node) {
         switch (node.getType()) {
-            case COMBAT   -> startBattle(EnemyFactory.createNormalEncounter(state.getMapLevel()));
-            case ELITE    -> startBattle(EnemyFactory.createEliteEncounter(state.getMapLevel()));
-            case BOSS     -> startBattle(EnemyFactory.createBossEncounter(state.getMapLevel()));
+            case COMBAT   -> startBattle(EnemyFactory.createNormalEncounter(state.getMapLevel()), "lvl" + state.getMapLevel() + "-combat");
+            case ELITE    -> startBattle(EnemyFactory.createEliteEncounter(state.getMapLevel()), "lvl" + state.getMapLevel() + "-miniBoss");
+            case BOSS     -> startBattle(EnemyFactory.createBossEncounter(state.getMapLevel()), "lvl" + state.getMapLevel() + "-boss");
             case REST     -> showRest();
             case SHOP     -> showShop();
             case TREASURE -> showTreasure();
         }
     }
 
-    private void startBattle(List<Enemy> enemies) {
+    private void startBattle(List<Enemy> enemies, String bgName) {
         cardPanel.removeAll();
         BattleEngine engine = new BattleEngine(state.getAliveParty(), enemies);
 
-        BattleScreen battle = new BattleScreen(engine, state.getAliveParty(), enemies, state.getInventory(),
+        BattleScreen battle = new BattleScreen(engine, state.getAliveParty(), enemies, state.getInventory(), bgName,
             new BattleScreen.Listener() {
                 @Override public void onBattleWon(int exp, int gold, String item, java.util.List<String> levelUps) {
                     state.addBattleWon();

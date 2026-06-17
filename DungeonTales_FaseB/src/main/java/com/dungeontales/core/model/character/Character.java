@@ -113,6 +113,12 @@ public abstract class Character implements Serializable {
         return false;
     }
 
+    public int restorePA(int amount) {
+        int before = pa;
+        pa = Math.min(paMax, pa + amount);
+        return pa - before;
+    }
+
     // ── Equipo ────────────────────────────────────────────────────────────
     public boolean equipWeapon(Weapon w) {
         if (w.fitsClass(className)) { equippedWeapon = w; return true; }
@@ -142,7 +148,7 @@ public abstract class Character implements Serializable {
         int atkGain = 1  + RNG.nextInt(3);
         int defGain = 1  + RNG.nextInt(2);
         hpMax  += hpGain;
-        hp      = Math.min(hp + hpGain / 2, hpMax);
+        hp      = Math.min(hp + hpGain, hpMax);
         baseAtk += atkGain;
         baseDef += defGain;
     }

@@ -48,8 +48,8 @@ public class BattleEvent {
         return new BattleEvent(Type.HEAL_APPLIED, actor, target, amount,
             target + " recupera " + amount + " HP");
     }
-    public static BattleEvent status(String target, String effectName) {
-        return new BattleEvent(Type.STATUS_APPLIED, null, target, 0,
+    public static BattleEvent status(String actor, String target, String effectName) {
+        return new BattleEvent(Type.STATUS_APPLIED, actor, target, 0,
             target + " recibe: " + effectName);
     }
     public static BattleEvent poisonTick(String target, int dmg) {

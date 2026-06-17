@@ -6,7 +6,7 @@ public class Weapon extends Item {
     private final String allowedClass; // null = cualquier clase
 
     public Weapon(String name, String desc, Rarity rarity, int value,
-                  int atkBonus, String allowedClass) {
+                int atkBonus, String allowedClass) {
         super(name, desc, rarity, value);
         this.atkBonus = atkBonus;
         this.allowedClass = allowedClass;

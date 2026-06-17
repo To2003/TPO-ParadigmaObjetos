@@ -1,45 +1,42 @@
 package com.dungeontales.ui.components;
 
-import com.dungeontales.util.SpriteSheet;
-
+import javax.imageio.ImageIO;
 import javax.swing.Timer;
+import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.InputStream;
 import java.util.EnumMap;
 import java.util.Map;
 
 /**
- * Frame-by-frame animator for characters with a sprite sheet.
+ * Animator that loads individual PNG frames from:
+ *   /sprites/characters/{Name}/{Action}/{Name}-{Action}-{N}.png
  *
- * Sheet layout (256×256 per frame, 6 cols × 4 rows):
- *   Row 0: IDLE[0-2]  | ATTACK[0-2]
- *   Row 1: SKILL[0-2] | HIT[0-2]
- *   Row 2: DEATH[0-2] | DEATH[3] (ghost, col 5)
+ * Stand.png is shown as the IDLE static frame.
+ * Combat animations (Atk, Spells, TakeDmg, Die) play frames 1→2→3
+ * then return to Stand automatically.
  */
 public class CharacterAnimator {
 
     public enum State { IDLE, ATTACK, SKILL, HIT, DEATH }
 
-    private static final int FRAME_W    = 256;
-    private static final int FRAME_H    = 256;
-    private static final int IDLE_MS    = 180;
-    private static final int COMBAT_MS  = 130;
+    private static final int FRAME_MS = 220;
 
     private final Map<State, BufferedImage[]> frames = new EnumMap<>(State.class);
-    private State    currentState  = State.IDLE;
-    private int      frameIndex    = 0;
+    private State    currentState = State.IDLE;
+    private int      frameIndex   = 0;
     private Timer    timer;
     private Runnable onFrameChange;
     private Runnable onAnimComplete;
 
     public CharacterAnimator(String characterName, int displayW, int displayH) {
         loadFrames(characterName, displayW, displayH);
-        startIdleLoop();
     }
 
     // ── Public API ────────────────────────────────────────────────────────
 
-    public void setOnFrameChange(Runnable r)   { this.onFrameChange  = r; }
-    public void setOnAnimComplete(Runnable r)   { this.onAnimComplete = r; }
+    public void setOnFrameChange(Runnable r)  { this.onFrameChange  = r; }
+    public void setOnAnimComplete(Runnable r)  { this.onAnimComplete = r; }
 
     public BufferedImage getCurrentFrame() {
         BufferedImage[] arr = frames.get(currentState);
@@ -47,9 +44,9 @@ public class CharacterAnimator {
         return arr[Math.min(frameIndex, arr.length - 1)];
     }
 
-    /** Play an animation; IDLE loops, others play once then return to IDLE. */
+    /** IDLE shows Stand.png statically. Combat animations play once then return to IDLE. */
     public void play(State state) {
-        if (currentState == State.DEATH) return; // no recovery from death
+        if (currentState == State.DEATH && state != State.IDLE) return;
         if (timer != null) timer.stop();
         currentState = state;
         frameIndex   = 0;
@@ -57,93 +54,117 @@ public class CharacterAnimator {
 
         BufferedImage[] arr = frames.get(state);
         if (arr == null || arr.length == 0) {
-            if (state == State.DEATH) {
-                // Sin frames de muerte: completar inmediatamente y mantener estado DEATH
-                if (onAnimComplete != null) onAnimComplete.run();
-            } else if (state != State.IDLE) {
-                startIdleLoop();
-            }
+            if (state == State.DEATH) { if (onAnimComplete != null) onAnimComplete.run(); }
+            else if (state != State.IDLE) returnToIdle();
             return;
         }
+        if (state == State.IDLE) return; // static frame — no timer needed
 
-        int ms = (state == State.IDLE) ? IDLE_MS : COMBAT_MS;
-        timer = new Timer(ms, null);
+        timer = new Timer(FRAME_MS, null);
         timer.addActionListener(e -> advance(state, arr));
         timer.start();
     }
 
-    public void dispose() {
-        if (timer != null) timer.stop();
-    }
+    public void dispose() { if (timer != null) timer.stop(); }
 
     // ── Internal ──────────────────────────────────────────────────────────
 
     private void advance(State state, BufferedImage[] arr) {
         frameIndex++;
-        if (frameIndex < arr.length) {
-            notifyFrameChange();
-            return;
-        }
-        // Último frame alcanzado
+        if (frameIndex < arr.length) { notifyFrameChange(); return; }
         timer.stop();
         frameIndex = arr.length - 1;
-        notifyFrameChange(); // muestra el último frame
-        if (state == State.IDLE) {
-            frameIndex = 0;
-            notifyFrameChange();
-            timer.start();
-        } else if (state == State.DEATH) {
+        notifyFrameChange();
+        if (state == State.DEATH) {
             if (onAnimComplete != null) onAnimComplete.run();
         } else {
-            // Esperar un intervalo antes de volver a IDLE para que el último frame sea visible
-            Timer endDelay = new Timer(COMBAT_MS, e -> {
+            Timer delay = new Timer(FRAME_MS, e -> {
                 if (onAnimComplete != null) onAnimComplete.run();
-                startIdleLoop();
+                returnToIdle();
             });
-            endDelay.setRepeats(false);
-            endDelay.start();
+            delay.setRepeats(false);
+            delay.start();
         }
     }
 
-    private void startIdleLoop() {
-        if (timer != null) timer.stop();
+    private void returnToIdle() {
         currentState = State.IDLE;
         frameIndex   = 0;
         notifyFrameChange();
-
-        BufferedImage[] arr = frames.get(State.IDLE);
-        if (arr == null || arr.length <= 1) return; // single frame — no timer needed
-
-        timer = new Timer(IDLE_MS, null);
-        timer.addActionListener(e -> advance(State.IDLE, arr));
-        timer.start();
     }
 
-    private void notifyFrameChange() {
-        if (onFrameChange != null) onFrameChange.run();
-    }
+    private void notifyFrameChange() { if (onFrameChange != null) onFrameChange.run(); }
+
+    // ── Frame loading ─────────────────────────────────────────────────────
 
     private void loadFrames(String name, int dw, int dh) {
-        BufferedImage sheet = SpriteSheet.load("/sprites/characters/" + name + "_sheet.png");
-        if (sheet == null) return;
-
-        frames.put(State.IDLE,   scaled(SpriteSheet.sliceRow(sheet, FRAME_W, FRAME_H, 0, 0, 1), dw, dh));
-        frames.put(State.ATTACK, scaled(SpriteSheet.sliceRow(sheet, FRAME_W, FRAME_H, 0, 3, 3), dw, dh));
-        frames.put(State.SKILL,  scaled(SpriteSheet.sliceRow(sheet, FRAME_W, FRAME_H, 1, 0, 3), dw, dh));
-        frames.put(State.HIT,    scaled(SpriteSheet.sliceRow(sheet, FRAME_W, FRAME_H, 1, 3, 3), dw, dh));
-
-        // Death: 3 falling frames + ghost frame (row 2 col 5)
-        BufferedImage[] falling = SpriteSheet.sliceRow(sheet, FRAME_W, FRAME_H, 2, 0, 3);
-        BufferedImage[] ghost   = SpriteSheet.sliceRow(sheet, FRAME_W, FRAME_H, 2, 5, 1);
-        BufferedImage[] death   = new BufferedImage[4];
-        for (int i = 0; i < 3; i++) death[i] = SpriteSheet.scale(falling[i], dw, dh);
-        death[3] = SpriteSheet.scale(ghost[0], dw, dh);
-        frames.put(State.DEATH, death);
+        String base = Character.toUpperCase(name.charAt(0)) + name.substring(1).toLowerCase();
+        frames.put(State.IDLE,   loadStand(base, dw, dh));
+        frames.put(State.ATTACK, loadAction(base, "Atk",     3, dw, dh));
+        frames.put(State.SKILL,  loadAction(base, "Spells",  3, dw, dh));
+        frames.put(State.HIT,    loadAction(base, "TakeDmg", 3, dw, dh));
+        frames.put(State.DEATH,  loadAction(base, "Die",     3, dw, dh));
     }
 
-    private static BufferedImage[] scaled(BufferedImage[] src, int w, int h) {
-        BufferedImage[] out = new BufferedImage[src.length];
-        for (int i = 0; i < src.length; i++) out[i] = SpriteSheet.scale(src[i], w, h);
+    private BufferedImage[] loadStand(String base, int dw, int dh) {
+        BufferedImage img = loadImg("/sprites/characters/" + base + "/" + base + "-Stand.png");
+        return img != null ? new BufferedImage[]{ scale(img, dw, dh) } : new BufferedImage[0];
+    }
+
+    private BufferedImage[] loadAction(String base, String action, int count, int dw, int dh) {
+        BufferedImage[] arr = new BufferedImage[count];
+        int loaded = 0;
+        for (int i = 1; i <= count; i++) {
+            BufferedImage img = tryLoadFrame(base, action, i);
+            if (img != null) { arr[i - 1] = scale(img, dw, dh); loaded++; }
+        }
+        return loaded > 0 ? arr : new BufferedImage[0];
+    }
+
+    /**
+     * Tries several naming/folder variants to handle per-character inconsistencies:
+     *   - Folder: "Atk" vs "ATk" (Warrior)
+     *   - Filename: Name-Action-N.png vs Name-ActionN.png (Paladin TakeDmg)
+     *   - Singular: Name-Spell-N.png vs Name-Spells-N.png (Rogue frame 1)
+     */
+    private BufferedImage tryLoadFrame(String base, String action, int n) {
+        String[] folders = action.equals("Atk")
+            ? new String[]{ "Atk", "ATk" }
+            : new String[]{ action };
+
+        for (String folder : folders) {
+            String dir = "/sprites/characters/" + base + "/" + folder + "/";
+            // Pattern 1: Name-Action-N.png  (standard)
+            BufferedImage img = loadImg(dir + base + "-" + action + "-" + n + ".png");
+            if (img != null) return img;
+            // Pattern 2: Name-ActionN.png  (no dash before number)
+            img = loadImg(dir + base + "-" + action + n + ".png");
+            if (img != null) return img;
+            // Pattern 3: singular action name (Spell vs Spells)
+            if (action.equals("Spells")) {
+                img = loadImg(dir + base + "-Spell-" + n + ".png");
+                if (img != null) return img;
+            }
+        }
+        return null;
+    }
+
+    private static BufferedImage loadImg(String path) {
+        try {
+            InputStream is = CharacterAnimator.class.getResourceAsStream(path);
+            return is != null ? ImageIO.read(is) : null;
+        } catch (Exception e) { return null; }
+    }
+
+    private static BufferedImage scale(BufferedImage src, int maxW, int maxH) {
+        int iw = src.getWidth(), ih = src.getHeight();
+        double s = Math.min((double) maxW / iw, (double) maxH / ih);
+        int dw = (int)(iw * s), dh = (int)(ih * s);
+        BufferedImage out = new BufferedImage(maxW, maxH, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = out.createGraphics();
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2.drawImage(src, (maxW - dw) / 2, (maxH - dh) / 2, dw, dh, null);
+        g2.dispose();
         return out;
     }
 }

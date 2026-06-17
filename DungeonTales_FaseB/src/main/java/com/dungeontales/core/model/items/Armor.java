@@ -7,7 +7,7 @@ public class Armor extends Item {
     private final String allowedClass;
 
     public Armor(String name, String desc, Rarity rarity, int value,
-                 int defBonus, int spdBonus, String allowedClass) {
+                int defBonus, int spdBonus, String allowedClass) {
         super(name, desc, rarity, value);
         this.defBonus = defBonus; this.spdBonus = spdBonus;
         this.allowedClass = allowedClass;

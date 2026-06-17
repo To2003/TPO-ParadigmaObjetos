@@ -173,17 +173,17 @@ public class BattleEngine {
                     events.add(BattleEvent.heal(actor.getName(), target.getName(), healed));
                 }
                 if (ability.hasEffect())
-                    events.addAll(applyEffect(target.getName(), ability, target, null));
+                    events.addAll(applyEffect(actor.getName(), target.getName(), ability, target, null));
             }
             case ALL_ALLIES -> {
                 party.stream().filter(Character::isAlive).forEach(a -> {
                     if (ability.hasEffect())
-                        events.addAll(applyEffect(a.getName(), ability, a, null));
+                        events.addAll(applyEffect(actor.getName(), a.getName(), ability, a, null));
                 });
             }
             case SELF -> {
                 if (ability.hasEffect())
-                    events.addAll(applyEffect(actor.getName(), ability, actor, null));
+                    events.addAll(applyEffect(actor.getName(), actor.getName(), ability, actor, null));
             }
         }
 
@@ -201,13 +201,17 @@ public class BattleEngine {
                 int healed = target.healHp(potion.getPower());
                 events.add(BattleEvent.heal(actor.getName(), target.getName(), healed));
             }
+            case PA_RESTORE -> {
+                int restored = target.restorePA(potion.getPower());
+                events.add(BattleEvent.log(target.getName() + " recupera " + restored + " PA."));
+            }
             case ANTIDOTE -> {
                 target.removeEffect(StatusEffect.Type.POISON);
                 events.add(BattleEvent.log(target.getName() + ": veneno curado"));
             }
             case STRENGTH -> {
                 target.applyEffect(new StatusEffect(StatusEffect.Type.ATTACK_UP, 2, potion.getPower()));
-                events.add(BattleEvent.status(target.getName(), "Fuerza (+" + potion.getPower() + " ATK)"));
+                events.add(BattleEvent.status(actor.getName(), target.getName(), "Fuerza (+" + potion.getPower() + " ATK)"));
             }
             case REVIVE -> {
                 if (!target.isAlive()) {
@@ -345,19 +349,19 @@ public class BattleEngine {
         }
 
         // Efecto de estado sobre el objetivo
-        if (ab.hasEffect()) events.addAll(applyEffect(target.getName(), ab, null, target));
+        if (ab.hasEffect()) events.addAll(applyEffect(actor.getName(), target.getName(), ab, null, target));
 
         if (!target.isAlive()) events.add(BattleEvent.enemyDied(target.getName()));
         return events;
     }
 
-    private List<BattleEvent> applyEffect(String targetName, Ability ab,
+    private List<BattleEvent> applyEffect(String actorName, String targetName, Ability ab,
                                            Character charTarget, Enemy enemyTarget) {
         List<BattleEvent> events = new ArrayList<>();
         StatusEffect effect = new StatusEffect(ab.getEffectType(), ab.getEffectDuration(), ab.getEffectValue());
         if (charTarget  != null) charTarget.applyEffect(effect);
         if (enemyTarget != null) enemyTarget.applyEffect(effect);
-        events.add(BattleEvent.status(targetName, effect.getDisplayName()));
+        events.add(BattleEvent.status(actorName, targetName, effect.getDisplayName()));
         return events;
     }
 

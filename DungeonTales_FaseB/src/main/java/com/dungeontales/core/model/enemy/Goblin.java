@@ -5,7 +5,7 @@ import com.dungeontales.core.model.StatusEffect;
 public class Goblin extends Enemy {
     public Goblin() {
         super("Goblin Acechador", 100 + RNG.nextInt(30), 16 + RNG.nextInt(6),
-              3, 16 + RNG.nextInt(5), 30, 10);
+            3, 16 + RNG.nextInt(5), 30, 10);
     }
     @Override public String getSpriteName() { return "goblin"; }
     @Override public String decideAction() {
@@ -23,7 +23,7 @@ public class Goblin extends Enemy {
 class Skeleton extends Enemy {
     public Skeleton() {
         super("Esqueleto Guerrero", 140 + RNG.nextInt(30), 22 + RNG.nextInt(6),
-              7, 10 + RNG.nextInt(5), 55, 18);
+            7, 10 + RNG.nextInt(5), 55, 18);
     }
     @Override public String getSpriteName() { return "skeleton"; }
     @Override public String decideAction() {
@@ -39,7 +39,7 @@ class Troll extends Enemy {
     private final int regeneration = 5;
     public Troll() {
         super("Troll de Piedra", 250 + RNG.nextInt(50), 30 + RNG.nextInt(10),
-              12, 5 + RNG.nextInt(4), 120, 40);
+            12, 5 + RNG.nextInt(4), 120, 40);
     }
     @Override public String getSpriteName() { return "troll"; }
     @Override public void startTurn() {
@@ -61,7 +61,7 @@ class FinalBoss extends Enemy {
     private int phase = 1;
     public FinalBoss(String name, int level) {
         super(name, 200 + level * 30, 25 + level * 3, 14 + level * 2,
-              12, 400, 150);
+            12, 400, 150);
     }
     @Override public String getSpriteName() { return "boss"; }
     @Override public void startTurn() {
