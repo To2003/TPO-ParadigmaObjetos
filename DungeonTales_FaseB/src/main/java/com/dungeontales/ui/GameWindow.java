@@ -25,8 +25,9 @@ public class GameWindow extends JFrame {
     private static final String SCREEN_RESULT  = "RESULT";
     private static final String SCREEN_REST    = "REST";
     private static final String SCREEN_SHOP    = "SHOP";
-    private static final String SCREEN_GAMEOVER  = "GAMEOVER";
-    private static final String SCREEN_TREASURE  = "TREASURE";
+    private static final String SCREEN_GAMEOVER    = "GAMEOVER";
+    private static final String SCREEN_TREASURE    = "TREASURE";
+    private static final String SCREEN_FLOOR_TRANS = "FLOOR_TRANS";
 
     private final CardLayout cardLayout = new CardLayout();
     private final JPanel     cardPanel  = new JPanel(cardLayout);
@@ -43,8 +44,7 @@ public class GameWindow extends JFrame {
         add(cardPanel);
 
         showMainMenu();
-        pack();
-        setLocationRelativeTo(null);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setVisible(true);
     }
 
@@ -105,7 +105,7 @@ public class GameWindow extends JFrame {
 
     private void startBattle(List<Enemy> enemies, String bgName) {
         cardPanel.removeAll();
-        BattleEngine engine = new BattleEngine(state.getAliveParty(), enemies);
+        BattleEngine engine = new BattleEngine(state.getAliveParty(), enemies, state.getInventory());
 
         BattleScreen battle = new BattleScreen(engine, state.getAliveParty(), enemies, state.getInventory(), bgName,
             new BattleScreen.Listener() {
@@ -131,10 +131,10 @@ public class GameWindow extends JFrame {
             // ¿Era el jefe y hay más niveles?
             if (state.getCurrentMap().isBossDefeated()) {
                 if (!state.isLastLevel()) {
+                    int fromLevel = state.getMapLevel();
                     state.advanceToNextLevel();
-                    JOptionPane.showMessageDialog(this,
-                        "¡Nivel completado!\nAvanzás al Nivel " + state.getMapLevel() + ".\nLa party se cura un 30% de HP.",
-                        "Nivel Completado", JOptionPane.PLAIN_MESSAGE);
+                    showFloorTransition(fromLevel);
+                    return;
                 } else {
                     showFinalVictory();
                     return;
@@ -144,6 +144,14 @@ public class GameWindow extends JFrame {
         });
         cardPanel.add(result, SCREEN_RESULT);
         cardLayout.show(cardPanel, SCREEN_RESULT);
+        revalidate();
+    }
+
+    private void showFloorTransition(int fromLevel) {
+        cardPanel.removeAll();
+        FloorTransitionScreen screen = new FloorTransitionScreen(state, fromLevel, this::showMap);
+        cardPanel.add(screen, SCREEN_FLOOR_TRANS);
+        cardLayout.show(cardPanel, SCREEN_FLOOR_TRANS);
         revalidate();
     }
 

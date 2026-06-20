@@ -1,6 +1,7 @@
 package com.dungeontales.core.battle;
 
 import com.dungeontales.core.model.Ability;
+import com.dungeontales.core.model.Inventory;
 import com.dungeontales.core.model.StatusEffect;
 import com.dungeontales.core.model.character.Character;
 import com.dungeontales.core.model.enemy.Enemy;
@@ -16,15 +17,17 @@ public class BattleEngine {
 
     private final List<Character> party;
     private final List<Enemy>     enemies;
+    private final Inventory       inventory;
     private List<Object>          turnOrder;
     private int                   turnIndex;
     private int                   turnNumber;
     private boolean               battleOver;
-    private boolean                playerWon;
+    private boolean               playerWon;
 
-    public BattleEngine(List<Character> party, List<Enemy> enemies) {
-        this.party   = party;
-        this.enemies = enemies;
+    public BattleEngine(List<Character> party, List<Enemy> enemies, Inventory inventory) {
+        this.party     = party;
+        this.enemies   = enemies;
+        this.inventory = inventory;
         this.turnNumber = 1;
         buildTurnOrder();
         party.forEach(Character::startCombat);
@@ -116,7 +119,7 @@ public class BattleEngine {
 
     public boolean isPlayerTurn() {
         Object c = getCurrentCombatant();
-        return c instanceof Character;
+        return c instanceof Character ch && !ch.isNpc();
     }
 
     /** Ataque básico del personaje actual. */
@@ -193,35 +196,8 @@ public class BattleEngine {
 
     /** Usar una poción del inventario. */
     public List<BattleEvent> playerUsePotion(Potion potion, Character target) {
-        List<BattleEvent> events = new ArrayList<>();
         Character actor = (Character) getCurrentCombatant();
-
-        switch (potion.getEffect()) {
-            case HEAL_SMALL, HEAL_LARGE -> {
-                int healed = target.healHp(potion.getPower());
-                events.add(BattleEvent.heal(actor.getName(), target.getName(), healed));
-            }
-            case PA_RESTORE -> {
-                int restored = target.restorePA(potion.getPower());
-                events.add(BattleEvent.log(target.getName() + " recupera " + restored + " PA."));
-            }
-            case ANTIDOTE -> {
-                target.removeEffect(StatusEffect.Type.POISON);
-                events.add(BattleEvent.log(target.getName() + ": veneno curado"));
-            }
-            case STRENGTH -> {
-                target.applyEffect(new StatusEffect(StatusEffect.Type.ATTACK_UP, 2, potion.getPower()));
-                events.add(BattleEvent.status(actor.getName(), target.getName(), "Fuerza (+" + potion.getPower() + " ATK)"));
-            }
-            case REVIVE -> {
-                if (!target.isAlive()) {
-                    int reviveHp = (int)(target.getHpMax() * potion.getPower() / 100.0);
-                    target.healHp(reviveHp);
-                    events.add(BattleEvent.heal("Elixir", target.getName(), reviveHp));
-                }
-            }
-        }
-        return events;
+        return applyPotionEffect(actor.getName(), potion, target);
     }
 
     /** El jugador termina su turno sin gastar todos los PA. */
@@ -252,6 +228,13 @@ public class BattleEngine {
                     events.add(BattleEvent.stunned(e.getName(), false));
                 } else {
                     events.addAll(processEnemyAction(e));
+                }
+            } else if (current instanceof Character ch && ch.isNpc()) {
+                if (ch.isStunned()) {
+                    ch.removeEffect(StatusEffect.Type.STUN);
+                    events.add(BattleEvent.stunned(ch.getName(), true));
+                } else {
+                    events.addAll(processNpcCharacterAction(ch));
                 }
             }
             turnIndex++;
@@ -318,6 +301,177 @@ public class BattleEngine {
             events.add(BattleEvent.characterDied(target.getName()));
         }
         checkBattleOver(events);
+        return events;
+    }
+
+    // ── IA de personajes NPC (Santi) ──────────────────────────────────────
+
+    private List<BattleEvent> processNpcCharacterAction(Character npc) {
+        List<BattleEvent> events = new ArrayList<>();
+        List<Enemy>     aliveEnemies = enemies.stream().filter(Enemy::isAlive).toList();
+        List<Character> aliveParty   = party.stream().filter(Character::isAlive).toList();
+
+        if (aliveEnemies.isEmpty()) return events;
+
+        int roll = new Random().nextInt(100);
+
+        // 20%: confundido, pierde el turno
+        if (roll < 20) {
+            events.add(BattleEvent.log(npc.getName() + " está confundido y no hace nada..."));
+            return events;
+        }
+
+        // 8%: usa poción aleatoria del inventario en objetivo aleatorio de la party
+        if (roll < 28 && inventory != null && !inventory.getPotions().isEmpty()) {
+            List<Potion> available = inventory.getPotions();
+            Potion pot = available.get(new Random().nextInt(available.size()));
+            Character target = aliveParty.get(new Random().nextInt(aliveParty.size()));
+            inventory.removeItem(pot);
+            events.add(BattleEvent.log(npc.getName() + " usa " + pot.getName()
+                + " en " + target.getName() + " al azar!"));
+            events.addAll(applyPotionEffect(npc.getName(), pot, target));
+            return events;
+        }
+
+        // 52%: intentar usar habilidad aleatoria
+        if (roll < 80) {
+            List<Ability> affordable = npc.getAbilities().stream()
+                .filter(a -> npc.getPa() >= a.getPaCost()).toList();
+            if (!affordable.isEmpty()) {
+                Ability ab = affordable.get(new Random().nextInt(affordable.size()));
+                npc.consumePA(ab.getPaCost());
+                events.add(BattleEvent.log(npc.getName() + " lanza " + ab.getName() + "!"));
+                events.addAll(applyNpcAbility(npc, ab, aliveEnemies, aliveParty));
+                checkBattleOver(events);
+                return events;
+            }
+        }
+
+        // 20% o sin PA: ataque básico con objetivo caótico
+        events.addAll(applyNpcBasicAttack(npc, aliveEnemies, aliveParty));
+        checkBattleOver(events);
+        return events;
+    }
+
+    /** Elige objetivo caótico y aplica la habilidad. */
+    private List<BattleEvent> applyNpcAbility(Character npc, Ability ab,
+                                               List<Enemy> aliveEnemies, List<Character> aliveParty) {
+        List<BattleEvent> events = new ArrayList<>();
+        Random rand = new Random();
+
+        switch (ab.getTargetType()) {
+            case ALL_ENEMIES -> {
+                // Siempre golpea todos los enemigos
+                for (Enemy e : aliveEnemies)
+                    events.addAll(applyDamageAbility(npc, ab, e));
+                // 30% chance: también golpea a 1 aliado random (excepto a sí mismo)
+                List<Character> others = aliveParty.stream().filter(c -> c != npc).toList();
+                if (rand.nextInt(100) < 30 && !others.isEmpty()) {
+                    Character unlucky = others.get(rand.nextInt(others.size()));
+                    events.add(BattleEvent.log("¡La magia de " + npc.getName() + " se descontrola!"));
+                    events.addAll(applyDamageAbilityToAlly(npc, ab, unlucky));
+                }
+            }
+            case SINGLE_ENEMY -> {
+                // 65% → enemigo, 25% → aliado, 10% → sí mismo
+                int targetRoll = rand.nextInt(100);
+                if (targetRoll < 65 && !aliveEnemies.isEmpty()) {
+                    Enemy t = aliveEnemies.get(rand.nextInt(aliveEnemies.size()));
+                    events.addAll(applyDamageAbility(npc, ab, t));
+                } else if (targetRoll < 90) {
+                    List<Character> others = aliveParty.stream()
+                        .filter(c -> c != npc).toList();
+                    if (!others.isEmpty()) {
+                        events.add(BattleEvent.log(npc.getName() + " apunta mal!"));
+                        events.addAll(applyDamageAbilityToAlly(npc, ab, others.get(rand.nextInt(others.size()))));
+                    } else {
+                        events.addAll(applyDamageAbilityToAlly(npc, ab, npc));
+                    }
+                } else {
+                    events.add(BattleEvent.log(npc.getName() + " se hechiza a sí mismo!"));
+                    events.addAll(applyDamageAbilityToAlly(npc, ab, npc));
+                }
+            }
+            default -> {
+                // Para cualquier otro tipo, atacar enemigo aleatorio
+                if (!aliveEnemies.isEmpty())
+                    events.addAll(applyDamageAbility(npc, ab, aliveEnemies.get(rand.nextInt(aliveEnemies.size()))));
+            }
+        }
+        return events;
+    }
+
+    /** Ataque básico con targeting caótico: 65% enemigo, 25% aliado, 10% sí mismo. */
+    private List<BattleEvent> applyNpcBasicAttack(Character npc,
+                                                   List<Enemy> aliveEnemies, List<Character> aliveParty) {
+        List<BattleEvent> events = new ArrayList<>();
+        Random rand = new Random();
+        int targetRoll = rand.nextInt(100);
+        int raw = npc.getEffectiveAtk() + rand.nextInt(5) - 2;
+
+        if (targetRoll < 65 && !aliveEnemies.isEmpty()) {
+            Enemy t = aliveEnemies.get(rand.nextInt(aliveEnemies.size()));
+            int dmg = t.receiveDamage(raw, false);
+            events.add(dmg == -1 ? BattleEvent.dodged(t.getName())
+                : BattleEvent.damage(npc.getName(), t.getName(), dmg, false));
+            if (!t.isAlive()) events.add(BattleEvent.enemyDied(t.getName()));
+        } else if (targetRoll < 90) {
+            List<Character> others = aliveParty.stream().filter(c -> c != npc).toList();
+            Character t = others.isEmpty() ? npc : others.get(rand.nextInt(others.size()));
+            events.add(BattleEvent.log(npc.getName() + " ataca a " + t.getName() + " por error!"));
+            int dmg = t.receiveDamage(raw, false);
+            events.add(dmg == -1 ? BattleEvent.dodged(t.getName())
+                : BattleEvent.damage(npc.getName(), t.getName(), dmg, false));
+            if (!t.isAlive()) events.add(BattleEvent.characterDied(t.getName()));
+        } else {
+            events.add(BattleEvent.log(npc.getName() + " se golpea a sí mismo!"));
+            int dmg = npc.receiveDamage(raw, false);
+            events.add(dmg == -1 ? BattleEvent.dodged(npc.getName())
+                : BattleEvent.damage(npc.getName(), npc.getName(), dmg, false));
+            if (!npc.isAlive()) events.add(BattleEvent.characterDied(npc.getName()));
+        }
+        return events;
+    }
+
+    /** Daño de habilidad sobre un Character aliado (Santi disparando a su propio equipo). */
+    private List<BattleEvent> applyDamageAbilityToAlly(Character actor, Ability ab, Character target) {
+        List<BattleEvent> events = new ArrayList<>();
+        int raw = (int)(actor.getEffectiveAtk() * ab.getDamageMultiplier());
+        int dmg = target.receiveDamage(raw, ab.isIgnoreDefense());
+        events.add(dmg == -1 ? BattleEvent.dodged(target.getName())
+            : BattleEvent.damage(actor.getName(), target.getName(), dmg, ab.isIgnoreDefense()));
+        if (!target.isAlive()) events.add(BattleEvent.characterDied(target.getName()));
+        return events;
+    }
+
+    /** Aplica efecto de poción sobre un Character (reutilizable por NPC y jugador). */
+    private List<BattleEvent> applyPotionEffect(String actorName, Potion pot, Character target) {
+        List<BattleEvent> events = new ArrayList<>();
+        switch (pot.getEffect()) {
+            case HEAL_SMALL, HEAL_LARGE -> {
+                int healed = target.healHp(pot.getPower());
+                events.add(BattleEvent.heal(actorName, target.getName(), healed));
+            }
+            case PA_RESTORE -> {
+                int restored = target.restorePA(pot.getPower());
+                events.add(BattleEvent.log(target.getName() + " recupera " + restored + " PA."));
+            }
+            case ANTIDOTE -> {
+                target.removeEffect(StatusEffect.Type.POISON);
+                events.add(BattleEvent.log(target.getName() + ": veneno curado"));
+            }
+            case STRENGTH -> {
+                target.applyEffect(new StatusEffect(StatusEffect.Type.ATTACK_UP, 2, pot.getPower()));
+                events.add(BattleEvent.status(actorName, target.getName(), "Fuerza (+" + pot.getPower() + " ATK)"));
+            }
+            case REVIVE -> {
+                if (!target.isAlive()) {
+                    int reviveHp = (int)(target.getHpMax() * pot.getPower() / 100.0);
+                    target.healHp(reviveHp);
+                    events.add(BattleEvent.heal(actorName, target.getName(), reviveHp));
+                }
+            }
+        }
         return events;
     }
 

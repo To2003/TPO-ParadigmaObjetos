@@ -40,55 +40,47 @@ public class EnemyCard extends JPanel {
     private final List<FloatingNum> floatingNums = new ArrayList<>();
     private Timer animTimer;
 
-    public EnemyCard(Enemy enemy) {
+    public EnemyCard(Enemy enemy) { this(enemy, 0); }
+
+    public EnemyCard(Enemy enemy, int maxWidth) {
         this.enemy = enemy;
 
         String n = enemy.getName().toLowerCase();
-        if (n.contains("troll") || n.contains("boss") || n.contains("sombra")
-                || n.contains("rey") || n.contains("eterno") || n.contains("señor")) {
-            cardW = 310; cardH = 390; spriteW = 260; spriteH = 320;
+        int bW, bH, bSW, bSH;
+        if (n.contains("sombra") || n.contains("rey") || n.contains("señor") || n.contains("tinieblas")) {
+            // Jefe principal
+            bW = 325; bH = 500; bSW = 316; bSH = 486;
+        } else if (n.contains("troll")   || n.contains("ogro")    || n.contains("golem")
+                || n.contains("vampiro") || n.contains("eterno")  || n.contains("esqueleto gigante")
+                || n.contains("caballero")) {
+            // Mini-boss
+            bW = 265; bH = 498; bSW = 257; bSH = 484;
         } else if (n.contains("goblin")) {
-            cardW = 200; cardH = 270; spriteW = 160; spriteH = 210;
+            // Goblin
+            bW = 185; bH = 354; bSW = 179; bSH = 343;
         } else {
-            cardW = 250; cardH = 325; spriteW = 210; spriteH = 265;
+            // Enemigo normal
+            bW = 225; bH = 438; bSW = 217; bSH = 425;
+        }
+        if (maxWidth > 0 && bW > maxWidth) {
+            double s = (double) maxWidth / bW;
+            cardW = maxWidth;         cardH = (int)(bH  * s);
+            spriteW = (int)(bSW * s); spriteH = (int)(bSH * s);
+        } else {
+            cardW = bW; cardH = bH; spriteW = bSW; spriteH = bSH;
         }
 
         setPreferredSize(new Dimension(cardW, cardH));
         setOpaque(false);
-        setLayout(new BorderLayout(0, 2));
-        setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
+        setLayout(new BorderLayout(0, 0));
+        setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
 
         sprite = SpriteLoader.getEnemySprite(enemy.getSpriteName(), spriteW, spriteH);
 
-        JPanel statsPanel = new JPanel();
-        statsPanel.setOpaque(false);
-        statsPanel.setLayout(new BoxLayout(statsPanel, BoxLayout.Y_AXIS));
-        statsPanel.setBorder(BorderFactory.createEmptyBorder(2, 4, 4, 4));
-
-        JLabel nameLabel = new JLabel(enemy.getName(), SwingConstants.CENTER);
-        nameLabel.setFont(Theme.labelFont(13f));
-        nameLabel.setForeground(Theme.TEXT_ENEMY);
-        nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        hpBar = new AnimatedBar(AnimatedBar.BarType.HP, enemy.getHpMax(), enemy.getHp());
-        hpBar.setMaximumSize(new Dimension(140, 6));
-        hpBar.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        actionHint = new JLabel("Próximo: ?");
-        actionHint.setFont(Theme.bodyFont(10f));
-        actionHint.setForeground(Theme.TEXT_MUTED);
-        actionHint.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        hpLabel = new JLabel(); // Dummy para mantener compatibilidad con refresh
-
-        statsPanel.add(Box.createVerticalStrut(4));
-        statsPanel.add(nameLabel);
-        statsPanel.add(Box.createVerticalStrut(2));
-        statsPanel.add(hpBar);
-        statsPanel.add(Box.createVerticalStrut(2));
-        statsPanel.add(actionHint);
-
-        add(statsPanel, BorderLayout.SOUTH);
+        // Bars kept as non-visual instances for refresh() compatibility
+        hpBar      = new AnimatedBar(AnimatedBar.BarType.HP, enemy.getHpMax(), enemy.getHp());
+        hpLabel    = new JLabel();
+        actionHint = new JLabel();
 
         animTimer = new Timer(16, e -> tickAnimations());
     }
@@ -177,18 +169,46 @@ public class EnemyCard extends JPanel {
         // Halo rojo/dorado debajo cuando es objetivo seleccionado
         if (targeted) {
             g2.setPaint(new RadialGradientPaint(
-                new java.awt.geom.Point2D.Float(w / 2f, h - 60),
-                70f,
+                new java.awt.geom.Point2D.Float(w / 2f, h - 50),
+                80f,
                 new float[]{0f, 1f},
-                new Color[]{new Color(200, 40, 40, 100), new Color(0,0,0,0)}
+                new Color[]{new Color(200, 40, 40, 140), new Color(0,0,0,0)}
             ));
-            g2.fillOval(w/2 - 70, h - 80, 140, 40);
+            g2.fillOval(w/2 - 80, h - 70, 160, 50);
         }
 
-        // Sprite
+        // Sombra en el suelo — a nivel de los pies del sprite
+        Composite savedComp = g2.getComposite();
+        int shadowW = (int)(spriteW * 0.75f);
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.55f));
+        g2.setColor(Color.BLACK);
+        g2.fillOval((w - shadowW) / 2, h - 50, shadowW, 16);
+        g2.setComposite(savedComp);
+
+        // Underglow ambiental cálido (encima de la sombra)
+        int glowR = (int)(spriteW * 0.55f);
+        g2.setPaint(new RadialGradientPaint(
+            new java.awt.geom.Point2D.Float(w / 2f, h - 50),
+            glowR,
+            new float[]{0f, 1f},
+            new Color[]{new Color(205, 160, 70, 55), new Color(0, 0, 0, 0)}
+        ));
+        g2.fillOval(w / 2 - glowR, h - 68, glowR * 2, 40);
+
+        // Sprite — pies en la parte baja de la card
         int sx = (w - spriteW) / 2;
-        int sy = 8;
-        if (sprite != null) g2.drawImage(sprite, sx, sy, this);
+        int sy = h - spriteH - 2;
+        if (sprite != null) {
+            // Rim-glow: copias offset desenfocadas a 20% alpha para contorno luminoso
+            Composite orig = g2.getComposite();
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.20f));
+            g2.drawImage(sprite, sx - 2, sy,     this);
+            g2.drawImage(sprite, sx + 2, sy,     this);
+            g2.drawImage(sprite, sx,     sy - 2, this);
+            g2.drawImage(sprite, sx,     sy + 2, this);
+            g2.setComposite(orig);
+            g2.drawImage(sprite, sx, sy, this);
+        }
 
         // Overlay de muerto
         if (!enemy.isAlive()) {

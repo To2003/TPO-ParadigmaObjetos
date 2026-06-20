@@ -37,6 +37,7 @@ public class ShopScreen extends JPanel {
     private BufferedImage background;
     private JPanel        goldPanel;
     private GameState     state;
+    private JLabel        statusLabel;
 
     public ShopScreen(GameState state, Listener listener) {
         this.state = state;
@@ -298,7 +299,12 @@ public class ShopScreen extends JPanel {
             }
         };
         footer.setOpaque(false);
-        footer.setLayout(new FlowLayout(FlowLayout.RIGHT, 24, 12));
+        footer.setLayout(new BorderLayout(16, 0));
+        footer.setBorder(BorderFactory.createEmptyBorder(12, 24, 12, 24));
+
+        statusLabel = new JLabel("", SwingConstants.LEFT);
+        statusLabel.setFont(Theme.labelFont(13f));
+        statusLabel.setForeground(new Color(0x60, 0xD8, 0x80));
 
         JPanel exitBtn = new JPanel(new GridBagLayout()) {
             boolean hover = false;
@@ -328,7 +334,9 @@ public class ShopScreen extends JPanel {
         lbl.setFont(Theme.labelFont(14f));
         lbl.setForeground(new Color(0xD4, 0xB8, 0x70));
         exitBtn.add(lbl);
-        footer.add(exitBtn);
+
+        footer.add(statusLabel, BorderLayout.CENTER);
+        footer.add(exitBtn,     BorderLayout.EAST);
         return footer;
     }
 
@@ -370,9 +378,10 @@ public class ShopScreen extends JPanel {
                     hover = false;
                     onBuy.run();
                     repaint();
-                    JOptionPane.showMessageDialog(ShopScreen.this,
-                        potion.getName() + " añadida al inventario.",
-                        "Compra exitosa", JOptionPane.PLAIN_MESSAGE);
+                    statusLabel.setText("✓  " + potion.getName() + " añadida al inventario.");
+                    javax.swing.Timer t = new javax.swing.Timer(2500, ev -> statusLabel.setText(""));
+                    t.setRepeats(false);
+                    t.start();
                 }
             });
         }

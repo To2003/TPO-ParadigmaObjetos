@@ -14,10 +14,10 @@ import java.util.List;
 
 public class CharacterCard extends JPanel {
 
-    private static final int CARD_W = 270;
-    private static final int CARD_H = 390;
-    private static final int SPRITE_W = 220;
-    private static final int SPRITE_H = 280;
+    public  static final int CARD_W = 210;
+    private static final int CARD_H = 498;
+    private static final int SPRITE_W = 205;
+    private static final int SPRITE_H = 480;
 
     // ── Modelo ───────────────────────────────────────────────────────────
     private final Character character;
@@ -71,37 +71,13 @@ public class CharacterCard extends JPanel {
         animator = new CharacterAnimator(character.getSpriteName(), SPRITE_W, SPRITE_H);
         animator.setOnFrameChange(this::repaint);
 
-        // ── Panel inferior: Nombre, HP y EXP ────────────────────────────
-        JPanel statsPanel = new JPanel();
-        statsPanel.setOpaque(false);
-        statsPanel.setLayout(new BoxLayout(statsPanel, BoxLayout.Y_AXIS));
-        statsPanel.setBorder(BorderFactory.createEmptyBorder(0, 4, 6, 4));
-
-        JLabel nameLabel = new JLabel(character.getName(), SwingConstants.CENTER);
-        nameLabel.setFont(Theme.labelFont(14f));
-        nameLabel.setForeground(Theme.TEXT_PRIMARY);
-        nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        hpBar = new AnimatedBar(AnimatedBar.BarType.HP, character.getHpMax(), character.getHp());
+        // HP/EXP bars kept as non-visible instances so refresh() can drive them
+        // and the Party HUD in BattleScreen can query the character directly.
+        hpBar  = new AnimatedBar(AnimatedBar.BarType.HP,  character.getHpMax(),    character.getHp());
         expBar = new AnimatedBar(AnimatedBar.BarType.EXP, character.getExpToNext(), character.getExp());
-
-        hpBar.setMaximumSize(new Dimension(160, 6));
-        expBar.setMaximumSize(new Dimension(160, 3));
-
-        // En DD, la clase y PA pips no suelen estorbar con texto.
-        // Eliminamos las labels de texto redundantes para un look más limpio.
-        hpLabel = new JLabel(); // Dummy para mantener compatibilidad con refresh
-        paLabel = new JLabel();
+        hpLabel    = new JLabel();
+        paLabel    = new JLabel();
         classLabel = new JLabel();
-
-        statsPanel.add(Box.createVerticalStrut(8));
-        statsPanel.add(nameLabel);
-        statsPanel.add(Box.createVerticalStrut(4));
-        statsPanel.add(hpBar);
-        statsPanel.add(Box.createVerticalStrut(4));
-        statsPanel.add(expBar);
-
-        add(statsPanel, BorderLayout.SOUTH);
 
         // Timer de animación a ~60fps para números flotantes
         animTimer = new Timer(16, e -> tickAnimations());
@@ -132,7 +108,14 @@ public class CharacterCard extends JPanel {
     }
 
     public void refresh() {
+        boolean wasDead = isDead;
         isDead = !character.isAlive();
+        if (wasDead && !isDead) {
+            // El personaje fue revivido: resetear animator y overlay
+            deathOverlayReady = false;
+            animator.setOnAnimComplete(null);
+            animator.play(CharacterAnimator.State.IDLE);
+        }
         hpLabel.setText("HP " + character.getHp() + "/" + character.getHpMax());
         paLabel.setText("PA " + character.getPa() + "/" + character.getPaMax());
         classLabel.setText(character.getClassName() + "  Nv." + character.getLevel());
@@ -239,69 +222,85 @@ public class CharacterCard extends JPanel {
 
         int w = getWidth(), h = getHeight();
 
-        // ── Base glow para personaje activo o targeteable ─────────────────
+        // Sombra en el suelo — a nivel de los pies del sprite
+        int shadowW = (int)(SPRITE_W * 0.72f);
+        Composite savedComp = g2.getComposite();
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.55f));
+        g2.setColor(Color.BLACK);
+        g2.fillOval((w - shadowW) / 2, h - 110, shadowW, 16);
+        g2.setComposite(savedComp);
+
+        // Glow para personaje activo o targeteable
         if (isActive || targetable) {
-            Color glowColor = targetable ? new Color(0x30, 0xFF, 0x80, 80) : new Color(0xC8, 0xA0, 0x50, 80);
+            Color glowColor = targetable ? new Color(0x30, 0xFF, 0x80, 90) : new Color(0xC8, 0xA0, 0x50, 90);
             g2.setPaint(new RadialGradientPaint(
-                    new java.awt.geom.Point2D.Float(w / 2f, h - 80),
-                    80f,
+                    new java.awt.geom.Point2D.Float(w / 2f, h - 110),
+                    90f,
                     new float[] { 0f, 1f },
                     new Color[] { glowColor, new Color(0, 0, 0, 0) }));
-            g2.fillOval(w / 2 - 80, h - 100, 160, 40);
+            g2.fillOval(w / 2 - 90, h - 130, 180, 50);
         }
 
-        // Sprite (animado si hay sheet, estático como fallback)
+        // Sprite — pies en la parte baja de la card
         int sx = (w - SPRITE_W) / 2;
-        int sy = (h - SPRITE_H) / 2 - 40;
+        int sy = h - SPRITE_H - 2;
         BufferedImage frame = animator.getCurrentFrame();
         g2.drawImage(frame != null ? frame : sprite, sx, sy, this);
 
-        // Overlay de muerto: Oscurece el sprite y pone un ícono
+        // Overlay de muerto
         if (isDead && deathOverlayReady) {
-            // Un círculo oscuro en el centro o solo oscurecer el sprite (lo dejamos simple
-            // oscureciendo)
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.6f));
             g2.setColor(Color.BLACK);
             g2.fillRect(sx, sy, SPRITE_W, SPRITE_H);
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
-
             g2.setColor(Theme.DMG_COLOR);
             g2.setFont(Theme.labelFont(18f));
             FontMetrics fm = g2.getFontMetrics();
             String txt = "☠";
             g2.drawString(txt, (w - fm.stringWidth(txt)) / 2, sy + SPRITE_H / 2);
+
+            // Indicador de revivir cuando la card es objetivo del elixir
+            if (targetable) {
+                g2.setColor(new Color(0x30, 0xFF, 0x80, 220));
+                g2.setStroke(new BasicStroke(3f));
+                g2.drawRoundRect(3, 3, w - 6, h - 6, 10, 10);
+                g2.setFont(Theme.labelFont(13f));
+                FontMetrics fm2 = g2.getFontMetrics();
+                String rev = "REVIVIR";
+                int tw = fm2.stringWidth(rev);
+                int labelY = sy + SPRITE_H / 2 + 30;
+                g2.setColor(new Color(0, 0, 0, 180));
+                g2.fillRoundRect((w - tw) / 2 - 4, labelY - fm2.getAscent(), tw + 8, fm2.getHeight() + 2, 6, 6);
+                g2.setColor(new Color(0x30, 0xFF, 0x80));
+                g2.drawString(rev, (w - tw) / 2, labelY);
+            }
             return;
         }
 
-        // Chips de efectos de estado
+        // Status chips (mínimos, pegados a los pies del sprite)
         if (!character.getEffects().isEmpty()) {
-            int ex = 6, ey = sy + SPRITE_H - 18;
-            g2.setFont(Theme.bodyFont(9f));
+            int ex = sx + 2, ey = h - 16;
+            g2.setFont(Theme.bodyFont(8f));
             for (StatusEffect e : character.getEffects()) {
-                if (!e.isActive())
-                    continue;
+                if (!e.isActive()) continue;
                 Color c = switch (e.getType()) {
-                    case POISON -> Theme.POISON_COLOR;
-                    case STUN -> Theme.STUN_COLOR;
+                    case POISON     -> Theme.POISON_COLOR;
+                    case STUN       -> Theme.STUN_COLOR;
                     case DEFENSE_UP -> Theme.SHIELD_COLOR;
-                    case ATTACK_UP -> e.getValue() >= 0 ? Theme.FURY_COLOR : Theme.DMG_COLOR;
-                    case EVASION -> Theme.EVASION_COLOR;
+                    case ATTACK_UP  -> e.getValue() >= 0 ? Theme.FURY_COLOR : Theme.DMG_COLOR;
+                    case EVASION    -> Theme.EVASION_COLOR;
                 };
                 String txt = e.getDisplayName() + "(" + e.getDuration() + ")";
                 FontMetrics fm = g2.getFontMetrics();
-                int tw = fm.stringWidth(txt) + 6;
-                g2.setColor(new Color(0, 0, 0, 140));
-                g2.fillRoundRect(ex, ey, tw, 13, 4, 4);
+                int tw = fm.stringWidth(txt) + 4;
+                g2.setColor(new Color(0, 0, 0, 160));
+                g2.fillRoundRect(ex, ey, tw, 12, 3, 3);
                 g2.setColor(c);
-                g2.drawString(txt, ex + 3, ey + 10);
-                ex += tw + 3;
-                if (ex > w - 20)
-                    break;
+                g2.drawString(txt, ex + 2, ey + 9);
+                ex += tw + 2;
+                if (ex > sx + SPRITE_W - 10) break;
             }
         }
-
-        // PA pips — superpuestos en la zona baja del sprite
-        drawPAPips(g2, w, sy);
 
         // Flash de impacto
         if (flashColor != null && flashAlpha > 0f) {

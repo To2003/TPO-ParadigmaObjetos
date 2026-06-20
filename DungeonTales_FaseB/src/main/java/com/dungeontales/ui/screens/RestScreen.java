@@ -142,22 +142,44 @@ public class RestScreen extends JPanel {
                 var alive = state.getAliveParty();
                 if (alive.size() == 1) {
                     alive.get(0).healHp((int)(alive.get(0).getHpMax() * 0.50));
+                    listener.onDone();
                 } else {
-                    String[] names = alive.stream().map(c ->
-                        c.getName() + " (" + c.getHp() + "/" + c.getHpMax() + " HP)")
-                        .toArray(String[]::new);
-                    String choice = (String) JOptionPane.showInputDialog(
-                        this, "Elegir personaje:", "Meditar",
-                        JOptionPane.PLAIN_MESSAGE, null, names, names[0]);
-                    if (choice == null) return;
-                    for (int i = 0; i < names.length; i++) {
-                        if (names[i].equals(choice)) {
-                            alive.get(i).healHp((int)(alive.get(i).getHpMax() * 0.50));
-                            break;
-                        }
+                    // Mostrar selector de personaje inline reemplazando el contenido del panel
+                    panel.removeAll();
+
+                    JLabel pickTitle = new JLabel("¿Quién medita?");
+                    pickTitle.setFont(Theme.titleFont(26f));
+                    pickTitle.setForeground(new Color(0xD4, 0xAA, 0x50));
+                    pickTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+                    JLabel pickSub = new JLabel("Recuperará el 50% de su HP máximo.");
+                    pickSub.setFont(Theme.bodyFont(13f));
+                    pickSub.setForeground(new Color(0xA0, 0x90, 0x70));
+                    pickSub.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+                    panel.add(Box.createVerticalGlue());
+                    panel.add(pickTitle);
+                    panel.add(Box.createVerticalStrut(6));
+                    panel.add(pickSub);
+                    panel.add(Box.createVerticalStrut(20));
+
+                    for (var c : alive) {
+                        JButton btn = new JButton(c.getName()
+                            + "   " + c.getHp() + " / " + c.getHpMax() + " HP");
+                        Theme.styleButton(btn);
+                        btn.setAlignmentX(Component.CENTER_ALIGNMENT);
+                        btn.setMaximumSize(new Dimension(300, 46));
+                        btn.addActionListener(ev -> {
+                            c.healHp((int)(c.getHpMax() * 0.50));
+                            listener.onDone();
+                        });
+                        panel.add(btn);
+                        panel.add(Box.createVerticalStrut(10));
                     }
+                    panel.add(Box.createVerticalGlue());
+                    panel.revalidate();
+                    panel.repaint();
                 }
-                listener.onDone();
             }
         );
 

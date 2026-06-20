@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/usr/share/maven/bin/mvn clean *)",
+      "Bash(mvn package *)",
+      "Bash(./mvnw package *)",
+      "Bash(git -C /home/toto/Documentos/CODE/TPO-ParadigmaObjetos/DungeonTales_FaseB ls-files target/)",
+      "Bash(git -C /home/toto/Documentos/CODE/TPO-ParadigmaObjetos/DungeonTales_FaseB ls-files --error-unmatch target/dungeon-tales-1.0-SNAPSHOT.jar)",
+      "Bash(awk '{sum+=$1} END {print sum \"M total approx\"}')",
+      "Bash(git -C /home/toto/Documentos/CODE/TPO-ParadigmaObjetos/DungeonTales_FaseB rm -r --cached target/)",
+      "Bash(git -C /home/toto/Documentos/CODE/TPO-ParadigmaObjetos/DungeonTales_FaseB status --short)"
+    ]
+  }
+}

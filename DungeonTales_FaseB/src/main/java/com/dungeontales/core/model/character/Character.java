@@ -10,6 +10,9 @@ import java.util.*;
 
 public abstract class Character implements Serializable {
 
+    // Control: si es true el engine lo mueve automáticamente (no el jugador)
+    protected boolean npc = false;
+
     // Stats base
     protected String name;
     protected String className;
@@ -154,6 +157,7 @@ public abstract class Character implements Serializable {
     }
 
     // ── Getters ───────────────────────────────────────────────────────────
+    public boolean isNpc()        { return npc; }
     public String getName()      { return name; }
     public String getClassName() { return className; }
     public int getHp()           { return hp; }

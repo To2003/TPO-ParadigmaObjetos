@@ -4,6 +4,7 @@ import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
+import java.text.Normalizer;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -43,15 +44,58 @@ public class SpriteLoader {
     }
 
     /**
-     * Carga la imagen del enemigo.
+     * Carga la imagen del enemigo y la voltea horizontalmente para que mire
+     * hacia la izquierda (enfrentando a los héroes).
      * Busca en: /sprites/enemies/{nombre}.png
      */
     public static BufferedImage getEnemySprite(String name, int width, int height) {
         String key = "enemy_" + name + "_" + width + "x" + height;
-        return cache.computeIfAbsent(key, k -> loadOrPlaceholder(
+        return cache.computeIfAbsent(key, k -> {
+            BufferedImage raw = loadOrPlaceholder(
                 "/sprites/enemies/" + name.toLowerCase().replace(" ", "_") + ".png",
-                name, width, height, false));
+                name, width, height, false);
+            return raw;
+        });
     }
+
+    /**
+     * Carga el ícono de una habilidad desde sprites/skills/{Clase}/{nombreCamelCase}.png
+     * El spriteName del personaje (ej. "mage") se convierte a carpeta (ej. "Mage").
+     * El nombre de la habilidad (ej. "Bola de Fuego") se convierte a camelCase sin tildes.
+     */
+    public static BufferedImage getSkillSprite(String characterSpriteName, String abilityName, int size) {
+        String folder   = characterSpriteName.substring(0, 1).toUpperCase()
+                        + characterSpriteName.substring(1).toLowerCase();
+        String fileName = toSkillFileName(abilityName);
+        String key      = "skill_" + folder + "_" + fileName + "_" + size;
+        return cache.computeIfAbsent(key, k -> loadOrPlaceholder(
+            "/sprites/skills/" + folder + "/" + fileName + ".png",
+            abilityName, size, size, false
+        ));
+    }
+
+    /** Ícono del ataque básico (compartido para todas las clases). */
+    public static BufferedImage getAttackSprite(int size) {
+        String key = "skill_attack_" + size;
+        return cache.computeIfAbsent(key, k -> loadOrPlaceholder(
+            "/sprites/skills/ataque.png", "AT", size, size, false
+        ));
+    }
+
+    /** "Bola de Fuego" → "bolaDeFuego",  "Evasión" → "evasion" */
+    private static String toSkillFileName(String abilityName) {
+        String normalized = Normalizer.normalize(abilityName, Normalizer.Form.NFD)
+            .replaceAll("\\p{InCombiningDiacriticalMarks}", "");
+        String[] words = normalized.split("\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < words.length; i++) {
+            String w = words[i].toLowerCase();
+            if (i == 0) sb.append(w);
+            else if (!w.isEmpty()) { sb.append(java.lang.Character.toUpperCase(w.charAt(0))); sb.append(w.substring(1)); }
+        }
+        return sb.toString();
+    }
+
 
     /**
      * Carga una imagen de UI (iconos, fondos).
@@ -139,7 +183,7 @@ public class SpriteLoader {
 
     /**
      * Convierte el fondo negro en transparencia usando el brillo del píxel como
-     * alpha.
+     * alpha. Diseñado para íconos de UI (glifos blancos sobre negro):
      * Negro (brillo=0) → completamente transparente.
      * Blanco (brillo=255) → completamente opaco.
      */
@@ -158,6 +202,7 @@ public class SpriteLoader {
         }
         return out;
     }
+
 
     private static BufferedImage loadOrPlaceholder(String path, String name,
             int w, int h, boolean flip) {
