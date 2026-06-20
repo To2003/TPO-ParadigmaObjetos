@@ -119,10 +119,69 @@ En caso de derrota total de la party, en cambio, aparece la pantalla de *Game Ov
 ---
 
 ## ¿En qué estado está el proyecto?
-Actualmente tenemos completa la Fase A del trabajo:
-* El diagrama de clases con todas las entidades del sistema y sus relaciones.
-* Dos diagramas de secuencia: el flujo de combate y el flujo de navegación del mapa.
-* Las cuatro pantallas de interfaz diseñadas como *wireframes* con la estética final.
-* Un prototipo funcional en Java de terminal que ya corre el juego completo: mapa, combate, descanso, tienda y tesoro.
 
-Para la **Fase B (junio)** el plan es reemplazar la interfaz de terminal con JavaFX, agregando las pantallas visuales, animaciones de combate y persistencia en archivo para guardar y cargar partidas.
+### Fase A — Completada
+* Diagrama de clases con todas las entidades del sistema y sus relaciones.
+* Dos diagramas de secuencia: flujo de combate y flujo de navegación del mapa.
+* Las cuatro pantallas de interfaz diseñadas como *wireframes* con la estética final.
+* Prototipo funcional en Java de terminal que corría el juego completo: mapa, combate, descanso, tienda y tesoro.
+
+---
+
+## Fase B — Interfaz gráfica completa
+
+La Fase B reemplaza completamente la interfaz de terminal por una aplicación de escritorio con interfaz gráfica en **Java Swing**, con sprites, fondos ilustrados y animaciones visuales.
+
+### Nuevo personaje: El Mago (Santi)
+Se sumó un cuarto integrante a la party, controlado por IA (no por el jugador). Es un *glass cannon* caótico: altísimo daño mágico pero muy poca defensa y HP, y puede fallar el objetivo o impactar a sus propios aliados.
+
+| Habilidad | Efecto | Costo PA |
+|---|---|---|
+| Bola de Fuego | 3x ATK a todos los enemigos | 3 |
+| Rayo | 2.8x ATK a un objetivo, ignora defensa | 2 |
+| Tormenta Arcana | 2.5x ATK a todos (puede descontrolarse) | 4 |
+| Lluvia de Meteoros | 4.5x ATK devastador (difícil de controlar) | 5 |
+
+### Pantallas implementadas
+Cada pantalla es un panel independiente que se intercambia desde la ventana principal según la fase del juego:
+
+* **Menú principal** — Nueva partida / Cargar partida / Salir.
+* **Party Screen** — Vista de los cuatro personajes antes de entrar al mapa.
+* **Mapa de nodos** — Árbol generado proceduralmente con íconos por tipo de nodo (combate, élite, descanso, tienda, tesoro, jefe).
+* **Pantalla de batalla** — Layout izquierda/derecha: cards de la party vs. cards de enemigos, barra de acciones con costos de PA, log de combate con delay visual entre eventos, selección de objetivo (enemigo y aliado), botón de usar poción y terminar turno.
+* **Pantalla de resultado** — EXP y oro ganado, subidas de nivel, ítem encontrado, estado de la party.
+* **Descanso** — Opciones de curar HP o meditar.
+* **Tienda** — Compra de pociones con el oro acumulado.
+* **Tesoro** — Recompensa aleatoria: EXP, oro o curación.
+* **Transición de piso** — Pantalla entre niveles al derrotar al jefe.
+
+### Generación procedural del mapa
+El mapa se genera a partir de un *seed* aleatorio (igual que Slay the Spire): 12 filas intermedias con 2-3 nodos cada una, conectadas con bifurcaciones. El seed se guarda en el archivo de partida para reconstruir exactamente el mismo grafo al cargar, sin guardar cada nodo individualmente.
+
+### Múltiples pisos con escala de dificultad
+El juego tiene **3 pisos**. Los enemigos, élites y jefes cambian según el piso:
+
+| Piso | Enemigos normales | Élite | Jefe |
+|---|---|---|---|
+| 1 | Goblin, Goblin Arquero | Troll + Ogro | Sombra Ancestral + Goblin Arquero |
+| 2 | Esqueleto, Shadow Hound | Caballero Oscuro + Esqueleto Gigante | Rey Esqueleto + Shadow Hound |
+| 3 | Demonio Menor, Cultista Oscuro | Vampiro Anciano + Golem de Piedra | Señor de las Tinieblas + Caballero Oscuro |
+
+Al completar un piso, la party se cura al 100% y se genera un nuevo mapa.
+
+### Sistema de ítems y pociones
+Los ítems tienen rareza (Común, Infrecuente, Rara) y tres tipos: Arma, Armadura y Poción. Las pociones disponibles en tienda y como recompensa son:
+
+* **Poción de Vida** — Recupera 50 HP a un aliado (25 oro)
+* **Poción de PA** — Restaura 4 PA al instante (40 oro)
+* **Elixir de Revivir** — Revive a un aliado caído con 40% de HP (110 oro)
+
+### Persistencia de partida
+El sistema de guardado serializa el `GameState` completo a JSON (`~/.dungeontales/savegame.json`) usando **Gson con `RuntimeTypeAdapterFactory`** para manejar correctamente el polimorfismo de personajes e ítems. Al cargar, el grafo del mapa se reconstruye desde el seed para preservar la identidad de los objetos (que Gson no mantiene por sí solo).
+
+### Cómo ejecutar
+```bash
+cd DungeonTales_FaseB
+mvn package
+java -jar target/DungeonTales.jar
+```
