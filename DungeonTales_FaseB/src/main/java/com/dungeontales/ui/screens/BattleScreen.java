@@ -30,7 +30,8 @@ import java.util.Map;
 public class BattleScreen extends JPanel {
 
     public interface Listener {
-        void onBattleWon(int expGained, int goldGained, String itemFound, List<String> levelUps);
+        void onBattleWon(int expGained, int goldGained, String itemFound,
+                         List<String> levelUps, boolean perfectClear);
         void onBattleGameOver();
     }
 
@@ -210,6 +211,13 @@ public class BattleScreen extends JPanel {
         initBattle();
     }
 
+    @Override
+    public void removeNotify() {
+        super.removeNotify();
+        if (eventTimer != null) eventTimer.stop();
+        hideTooltip();
+    }
+
     // ── Fondo a pantalla completa ───────────────────────────────────────────
 
     @Override
@@ -315,7 +323,8 @@ public class BattleScreen extends JPanel {
                              levelUps.add(c.getName() + " -> Nivel " + c.getLevel());
                          }
                      });
-                listener.onBattleWon(totalExp, totalGold, null, levelUps);
+                boolean perfectClear = !engine.isPartyTookDamage();
+                listener.onBattleWon(totalExp, totalGold, null, levelUps, perfectClear);
             });
             case LEVEL_UP -> {
                 // Ya manejado arriba

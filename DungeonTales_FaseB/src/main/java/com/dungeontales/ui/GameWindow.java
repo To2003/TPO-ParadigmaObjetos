@@ -5,6 +5,7 @@ import com.dungeontales.core.battle.BattleEngine;
 import com.dungeontales.core.map.MapNode;
 import com.dungeontales.core.model.enemy.EnemyFactory;
 import com.dungeontales.core.model.enemy.Enemy;
+import com.dungeontales.core.model.items.RareItem;
 import com.dungeontales.save.SaveManager;
 import com.dungeontales.ui.screens.*;
 import com.dungeontales.util.Theme;
@@ -32,6 +33,7 @@ public class GameWindow extends JFrame {
     private final CardLayout cardLayout = new CardLayout();
     private final JPanel     cardPanel  = new JPanel(cardLayout);
     private GameState        state;
+    private MapNode.Type     currentBattleNodeType;
 
     public GameWindow() {
         super("Dungeon Tales");
@@ -93,6 +95,7 @@ public class GameWindow extends JFrame {
     }
 
     private void handleNode(MapNode node) {
+        currentBattleNodeType = node.getType();
         switch (node.getType()) {
             case COMBAT   -> startBattle(EnemyFactory.createNormalEncounter(state.getMapLevel()), "lvl" + state.getMapLevel() + "-combat");
             case ELITE    -> startBattle(EnemyFactory.createEliteEncounter(state.getMapLevel()), "lvl" + state.getMapLevel() + "-miniBoss");
@@ -109,9 +112,13 @@ public class GameWindow extends JFrame {
 
         BattleScreen battle = new BattleScreen(engine, state.getAliveParty(), enemies, state.getInventory(), bgName,
             new BattleScreen.Listener() {
-                @Override public void onBattleWon(int exp, int gold, String item, java.util.List<String> levelUps) {
+                @Override public void onBattleWon(int exp, int gold, String item,
+                                                  java.util.List<String> levelUps, boolean perfectClear) {
                     state.addBattleWon();
-                    state.setLastBattleResult(exp, gold, item, levelUps);
+                    java.util.Optional<RareItem> rare = rollRareItem(currentBattleNodeType, perfectClear);
+                    rare.ifPresent(r -> state.getInventory().addItem(r));
+                    String rareItemName = rare.map(RareItem::getName).orElse(item);
+                    state.setLastBattleResult(exp, gold, rareItemName, levelUps);
                     state.addGold(gold);
                     showResult();
                 }
@@ -123,6 +130,15 @@ public class GameWindow extends JFrame {
         cardPanel.add(battle, SCREEN_BATTLE);
         cardLayout.show(cardPanel, SCREEN_BATTLE);
         revalidate();
+    }
+
+    private java.util.Optional<RareItem> rollRareItem(MapNode.Type nodeType, boolean perfectClear) {
+        if (state.getRareItemPool() == null) return java.util.Optional.empty();
+        return switch (nodeType) {
+            case BOSS  -> state.getRareItemPool().rollBoss();
+            case ELITE -> state.getRareItemPool().rollMiniBoss(perfectClear);
+            default    -> java.util.Optional.empty();
+        };
     }
 
     private void showResult() {

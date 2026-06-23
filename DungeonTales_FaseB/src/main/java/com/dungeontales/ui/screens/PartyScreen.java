@@ -4,6 +4,7 @@ import com.dungeontales.core.GameState;
 import com.dungeontales.core.model.Ability;
 import com.dungeontales.core.model.character.Character;
 import com.dungeontales.core.model.items.Potion;
+import com.dungeontales.core.model.items.RareItem;
 import com.dungeontales.util.SpriteLoader;
 import com.dungeontales.util.Theme;
 
@@ -31,6 +32,7 @@ public class PartyScreen extends JDialog {
     private static final Color HP_COL    = new Color(0xC0, 0x28, 0x28);
     private static final Color EXP_COL   = new Color(0x38, 0x78, 0xD0);
     private static final Color PA_COL    = new Color(0x28, 0x90, 0xD0);
+    private static final Color EPIC_COL  = new Color(0xC0, 0x50, 0xFF);
 
     private static final int DIALOG_W = 980;
     private static final int DIALOG_H = 650;
@@ -247,6 +249,18 @@ public class PartyScreen extends JDialog {
         slots.add(equipSlot("🛡 ARMADURA",
             c.getEquippedArmor()  != null ? c.getEquippedArmor().getName()  : null));
         p.add(slots);
+
+        // Slots épicos
+        p.add(vgap(5));
+        JPanel epicSlots = new JPanel(new GridLayout(1, 2, 8, 0));
+        epicSlots.setOpaque(false);
+        epicSlots.setMaximumSize(new Dimension(Integer.MAX_VALUE, 68));
+        epicSlots.setAlignmentX(Component.LEFT_ALIGNMENT);
+        epicSlots.add(epicEquipSlot("✦ ARMA ÉPICA",
+            c.getEquippedRareWeapon() != null ? c.getEquippedRareWeapon().getName() : null));
+        epicSlots.add(epicEquipSlot("✦ ARMADURA ÉPICA",
+            c.getEquippedRareArmor()  != null ? c.getEquippedRareArmor().getName()  : null));
+        p.add(epicSlots);
         p.add(Box.createVerticalGlue());
         return p;
     }
@@ -347,12 +361,13 @@ public class PartyScreen extends JDialog {
             reps.putIfAbsent(po.getEffect(), po);
         }
 
-        // Convertir a lista ordenada de (potion, count)
-        List<Potion> itemList = new ArrayList<>(reps.values());
-        List<Integer> countList = new ArrayList<>();
-        for (Potion po : itemList) countList.add(counts.get(po.getEffect()));
+        List<Potion>   potionList  = new ArrayList<>(reps.values());
+        List<Integer>  countList   = new ArrayList<>();
+        for (Potion po : potionList) countList.add(counts.get(po.getEffect()));
 
-        int total = itemList.size();
+        List<RareItem> rareList    = state.getInventory().getRareItems();
+
+        int total = potionList.size() + rareList.size();
         int rows  = Math.max(4, (int) Math.ceil((double) total / GRID_COLS) + 2);
         int cells = rows * GRID_COLS;
 
@@ -361,10 +376,15 @@ public class PartyScreen extends JDialog {
         grid.setBorder(BorderFactory.createEmptyBorder(3, 3, 3, 3));
 
         for (int i = 0; i < cells; i++) {
-            if (i < total)
-                grid.add(buildItemCell(itemList.get(i), countList.get(i)));
-            else
-                grid.add(buildEmptyCell());
+            if (i < potionList.size()) {
+                grid.add(buildItemCell(potionList.get(i), countList.get(i)));
+            } else {
+                int ri = i - potionList.size();
+                if (ri < rareList.size())
+                    grid.add(buildRareItemCell(rareList.get(ri)));
+                else
+                    grid.add(buildEmptyCell());
+            }
         }
         return grid;
     }
@@ -560,6 +580,191 @@ public class PartyScreen extends JDialog {
         slot.add(Box.createVerticalStrut(3));
         slot.add(itemLbl);
         return slot;
+    }
+
+    private JPanel epicEquipSlot(String slotName, String itemName) {
+        boolean filled = itemName != null;
+        JPanel slot = new JPanel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON);
+                int w = getWidth(), h = getHeight();
+                g2.setColor(filled ? new Color(0x22, 0x08, 0x30) : CELL_EMPTY);
+                g2.fillRoundRect(0, 0, w, h, 6, 6);
+                Color border = filled ? new Color(0xA0, 0x30, 0xE0) : new Color(0x44, 0x20, 0x55);
+                g2.setColor(border);
+                g2.setStroke(filled
+                    ? new BasicStroke(1.5f)
+                    : new BasicStroke(1.2f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER,
+                        1f, new float[]{5, 3}, 0));
+                g2.drawRoundRect(0, 0, w - 1, h - 1, 6, 6);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        slot.setOpaque(false);
+        slot.setLayout(new BoxLayout(slot, BoxLayout.Y_AXIS));
+        slot.setBorder(BorderFactory.createEmptyBorder(5, 6, 5, 6));
+
+        JLabel slotLbl = new JLabel(slotName, SwingConstants.CENTER);
+        slotLbl.setFont(Theme.bodyFont(8f).deriveFont(Font.BOLD));
+        slotLbl.setForeground(new Color(0xA0, 0x50, 0xD0));
+        slotLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JLabel itemLbl = new JLabel(filled ? itemName : "—", SwingConstants.CENTER);
+        itemLbl.setFont(Theme.bodyFont(10f));
+        itemLbl.setForeground(filled ? EPIC_COL : TEXT_DIM);
+        itemLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        slot.add(slotLbl);
+        slot.add(Box.createVerticalStrut(3));
+        slot.add(itemLbl);
+        return slot;
+    }
+
+    private JPanel buildRareItemCell(RareItem r) {
+        Color accent = EPIC_COL;
+        String classTag = switch (r.getRequiredClass()) {
+            case "Pícaro"  -> "rogue";
+            case "Paladín" -> "paladin";
+            case "Guerrero"-> "warrior";
+            case "Mago"    -> "mage";
+            default        -> r.getRequiredClass().toLowerCase();
+        };
+        String iconKey = "rare-" + (r.getSlot() == RareItem.Slot.WEAPON ? "weapon" : "armor") + "-" + classTag;
+        java.awt.image.BufferedImage icon = SpriteLoader.getItemIcon(iconKey, CELL_SZ);
+
+        JPanel cell = new JPanel() {
+            boolean hover = false;
+            {
+                setOpaque(false);
+                addMouseListener(new MouseAdapter() {
+                    @Override public void mouseEntered(MouseEvent e) {
+                        hover = true; repaint();
+                        if (tooltipLabel != null)
+                            tooltipLabel.setText("✦ " + r.getName() + "  [" + r.getRequiredClass() + "]  — " + r.getDescription() + "  (clic para equipar)");
+                    }
+                    @Override public void mouseExited(MouseEvent e) {
+                        hover = false; repaint();
+                        if (tooltipLabel != null) tooltipLabel.setText(" ");
+                    }
+                    @Override public void mouseClicked(MouseEvent e) {
+                        showEquipDialog(r);
+                    }
+                });
+                setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            }
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON);
+                int w = getWidth(), h = getHeight();
+
+                g2.setColor(hover ? new Color(0x22, 0x08, 0x30) : new Color(0x18, 0x06, 0x22));
+                g2.fillRect(0, 0, w, h);
+
+                g2.setColor(hover ? new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 200)
+                    : new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 100));
+                g2.setStroke(new BasicStroke(hover ? 1.8f : 1.2f));
+                g2.drawRect(0, 0, w - 1, h - 1);
+
+                // Ícono llenando todo el cell
+                if (icon != null) {
+                    g2.setComposite(java.awt.AlphaComposite.getInstance(
+                        java.awt.AlphaComposite.SRC_OVER, hover ? 1f : 0.88f));
+                    g2.drawImage(icon, 0, 0, w, h, null);
+                    g2.setComposite(java.awt.AlphaComposite.getInstance(java.awt.AlphaComposite.SRC_OVER, 1f));
+                } else {
+                    g2.setFont(Theme.labelFont(22f));
+                    g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), hover ? 220 : 140));
+                    FontMetrics fm = g2.getFontMetrics();
+                    String sym = r.getSlot() == RareItem.Slot.WEAPON ? "⚔" : "🛡";
+                    g2.drawString(sym, (w - fm.stringWidth(sym)) / 2, h / 2 + fm.getAscent() / 2);
+                }
+
+                // Nombre como overlay semitransparente en la franja inferior
+                g2.setFont(Theme.bodyFont(7f).deriveFont(Font.BOLD));
+                FontMetrics nameFm = g2.getFontMetrics();
+                String shortName = r.getName().length() > 12 ? r.getName().substring(0, 11) + "…" : r.getName();
+                int nameW = nameFm.stringWidth(shortName);
+                g2.setColor(new Color(0, 0, 0, 160));
+                g2.fillRect(0, h - nameFm.getHeight() - 2, w, nameFm.getHeight() + 3);
+                g2.setColor(accent);
+                g2.drawString(shortName, (w - nameW) / 2, h - nameFm.getDescent() - 2);
+
+                g2.dispose();
+            }
+        };
+        cell.setPreferredSize(new Dimension(CELL_SZ, CELL_SZ));
+        return cell;
+    }
+
+    private void showEquipDialog(RareItem r) {
+        JDialog dlg = new JDialog(this, "Equipar: " + r.getName(), true);
+        dlg.setUndecorated(false);
+        dlg.getContentPane().setBackground(new Color(0x14, 0x0C, 0x06));
+
+        JPanel root = new JPanel();
+        root.setLayout(new BoxLayout(root, BoxLayout.Y_AXIS));
+        root.setBackground(new Color(0x14, 0x0C, 0x06));
+        root.setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
+
+        JLabel title = new JLabel("¿A quién equipar?");
+        title.setFont(Theme.labelFont(13f).deriveFont(Font.BOLD));
+        title.setForeground(EPIC_COL);
+        title.setAlignmentX(Component.CENTER_ALIGNMENT);
+        root.add(title);
+        root.add(Box.createVerticalStrut(6));
+
+        JLabel desc = new JLabel("<html><center>" + r.getDescription() + "</center></html>");
+        desc.setFont(Theme.bodyFont(10f));
+        desc.setForeground(TEXT_DIM);
+        desc.setAlignmentX(Component.CENTER_ALIGNMENT);
+        root.add(desc);
+        root.add(Box.createVerticalStrut(14));
+
+        for (Character c : party) {
+            boolean canEquip = r.fitsClass(c.getClassName());
+            JButton btn = new JButton(c.getName() + "  (" + c.getClassName() + ")");
+            btn.setFont(Theme.bodyFont(11f).deriveFont(Font.BOLD));
+            btn.setEnabled(canEquip);
+            btn.setBackground(canEquip ? new Color(0x2A, 0x0A, 0x3A) : new Color(0x18, 0x14, 0x12));
+            btn.setForeground(canEquip ? EPIC_COL : TEXT_DIM);
+            btn.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(canEquip ? new Color(0x80, 0x30, 0xB0) : new Color(0x30, 0x28, 0x20), 1),
+                BorderFactory.createEmptyBorder(6, 14, 6, 14)));
+            btn.setFocusPainted(false);
+            btn.setCursor(canEquip ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) : Cursor.getDefaultCursor());
+            btn.setAlignmentX(Component.CENTER_ALIGNMENT);
+            btn.setMaximumSize(new Dimension(260, 36));
+            if (canEquip) {
+                btn.addActionListener(ev -> {
+                    if (r.getSlot() == RareItem.Slot.WEAPON) c.equipRareWeapon(r);
+                    else                                      c.equipRareArmor(r);
+                    dlg.dispose();
+                    refreshBody();
+                });
+            }
+            root.add(btn);
+            root.add(Box.createVerticalStrut(6));
+        }
+
+        JButton cancel = new JButton("Cancelar");
+        cancel.setFont(Theme.bodyFont(10f));
+        cancel.setBackground(new Color(0x18, 0x10, 0x08));
+        cancel.setForeground(TEXT_DIM);
+        cancel.setBorder(BorderFactory.createLineBorder(GOLD_DIM, 1));
+        cancel.setFocusPainted(false);
+        cancel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        cancel.addActionListener(ev -> dlg.dispose());
+        root.add(Box.createVerticalStrut(4));
+        root.add(cancel);
+
+        dlg.setContentPane(root);
+        dlg.pack();
+        dlg.setLocationRelativeTo(this);
+        dlg.setVisible(true);
     }
 
     private void sectionTitle(JPanel p, String text) {

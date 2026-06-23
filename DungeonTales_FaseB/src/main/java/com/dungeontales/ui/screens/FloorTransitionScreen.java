@@ -79,7 +79,6 @@ public class FloorTransitionScreen extends JPanel {
         card.setOpaque(false);
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBorder(BorderFactory.createEmptyBorder(32, 40, 32, 40));
-        card.setPreferredSize(new Dimension(560, 0));
 
         // ── Título ────────────────────────────────────────────────────────
         JLabel floorDone = new JLabel("✦  PISO " + fromLevel + " COMPLETADO  ✦", SwingConstants.CENTER);
@@ -131,6 +130,8 @@ public class FloorTransitionScreen extends JPanel {
         continueBtn.addActionListener(e -> listener.onContinue());
         card.add(continueBtn);
 
+        // Fijar ancho a 560 con altura natural (calculada después de agregar hijos)
+        card.setPreferredSize(new Dimension(560, card.getPreferredSize().height));
         return card;
     }
 

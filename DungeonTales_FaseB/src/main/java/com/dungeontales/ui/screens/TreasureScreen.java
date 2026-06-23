@@ -1,6 +1,7 @@
 package com.dungeontales.ui.screens;
 
 import com.dungeontales.core.GameState;
+import com.dungeontales.core.model.items.RareItem;
 import com.dungeontales.util.SpriteLoader;
 import com.dungeontales.util.Theme;
 
@@ -60,7 +61,7 @@ public class TreasureScreen extends JPanel {
         content.add(chestPanel);
 
         // Reward parchment
-        rewardLabel = new JLabel("", SwingConstants.CENTER);
+        rewardLabel = new JLabel("<html></html>", SwingConstants.CENTER);
         rewardLabel.setFont(Theme.labelFont(16f));
         rewardLabel.setForeground(new Color(0xFF, 0xE0, 0x80));
 
@@ -148,7 +149,7 @@ public class TreasureScreen extends JPanel {
 
     private void openChest(GameState state) {
         int roll = (int)(Math.random() * 4);
-        String reward = switch (roll) {
+        String baseReward = switch (roll) {
             case 0 -> { state.addGold(30);
                 yield "¡Encontraste 30 monedas de oro!"; }
             case 1 -> { state.getAliveParty().forEach(c -> c.healHp(25));
@@ -159,10 +160,17 @@ public class TreasureScreen extends JPanel {
                 yield "¡Un cofre lleno de monedas! +50 GP"; }
         };
 
+        // Bonus: roll de ítem raro (20% — adicional al tesoro normal)
+        java.util.Optional<RareItem> rare = state.getRareItemPool().rollTreasure();
+        rare.ifPresent(r -> state.getInventory().addItem(r));
+        String reward = rare
+            .map(r -> baseReward + "<br>✦ <b>¡ÉPICO!</b> " + r.getName() + " (" + r.getRequiredClass() + ")")
+            .orElse(baseReward);
+
         chestState = ChestState.OPEN;
         hintLabel.setVisible(false);
         chestPanel.repaint();
-        rewardLabel.setText(reward);
+        rewardLabel.setText("<html><center>" + reward + "</center></html>");
         rewardPane.setVisible(true);
         continueBtn.setEnabled(true);
     }

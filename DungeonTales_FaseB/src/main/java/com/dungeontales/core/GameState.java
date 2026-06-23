@@ -7,6 +7,7 @@ import com.dungeontales.core.model.character.Mage;
 import com.dungeontales.core.model.character.Paladin;
 import com.dungeontales.core.model.character.Rogue;
 import com.dungeontales.core.model.character.Warrior;
+import com.dungeontales.core.model.items.RareItemPool;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -19,6 +20,7 @@ public class GameState implements Serializable {
 
     private List<Character>  party;
     private Inventory        inventory;
+    private RareItemPool     rareItemPool;
     private GameMap          currentMap;
     private int              gold;
     private int              mapLevel;
@@ -39,9 +41,10 @@ public class GameState implements Serializable {
         gs.party.add(new Paladin("Aldric"));
         gs.party.add(new Warrior("Bronn"));
         gs.party.add(new Mage("Santi"));
-        gs.inventory  = new Inventory();
-        gs.gold       = 50;
-        gs.mapLevel   = 3;
+        gs.inventory     = new Inventory();
+        gs.rareItemPool  = new RareItemPool();
+        gs.gold          = 50;
+        gs.mapLevel   = 1;
         gs.totalMaps  = totalMaps;
         gs.phase      = Phase.MAP;
         gs.currentMap = new GameMap(1, System.currentTimeMillis());
@@ -57,6 +60,7 @@ public class GameState implements Serializable {
     public boolean isLastLevel() { return mapLevel >= totalMaps; }
     public boolean isGameOver()  { return party.stream().noneMatch(Character::isAlive); }
 
+    public RareItemPool    getRareItemPool()   { return rareItemPool; }
     public List<Character> getParty()         { return Collections.unmodifiableList(party); }
     public List<Character> getAliveParty()    { return party.stream().filter(Character::isAlive).toList(); }
     public Inventory       getInventory()     { return inventory; }

@@ -6,6 +6,7 @@ import com.dungeontales.core.model.StatusEffect;
 import com.dungeontales.core.model.character.Character;
 import com.dungeontales.core.model.enemy.Enemy;
 import com.dungeontales.core.model.items.Potion;
+import com.dungeontales.core.model.items.RareItem;
 
 import java.util.*;
 
@@ -23,6 +24,7 @@ public class BattleEngine {
     private int                   turnNumber;
     private boolean               battleOver;
     private boolean               playerWon;
+    private boolean               partyTookDamage; // true si algún enemigo dañó a la party
 
     public BattleEngine(List<Character> party, List<Enemy> enemies, Inventory inventory) {
         this.party     = party;
@@ -127,21 +129,35 @@ public class BattleEngine {
         List<BattleEvent> events = new ArrayList<>();
         Character actor = (Character) getCurrentCombatant();
 
-        int raw  = actor.getEffectiveAtk() + new Random().nextInt(5) - 2;
-        int dmg  = target.receiveDamage(raw, false);
+        // Veredicto del Alba: daño escala con DEF propia en vez de ATK
+        int raw = actor.hasPassive(RareItem.PassiveType.DEFENSE_SCALES_DAMAGE)
+                ? actor.getEffectiveDef() + new Random().nextInt(5) - 2
+                : actor.getEffectiveAtk() + new Random().nextInt(5) - 2;
+
+        // Devastadora de Huesos (Sed de Sangre): +2% de daño por cada 1% de HP faltante
+        if (actor.hasPassive(RareItem.PassiveType.BERSERKER)) {
+            double missingPct = 1.0 - (double) actor.getHp() / actor.getHpMax();
+            raw = (int)(raw * (1.0 + 2.0 * missingPct));
+        }
+
+        // Beso de la Viuda: si el enemigo está envenenado, ignora 50% armadura
+        boolean pierceDef = actor.hasPassive(RareItem.PassiveType.POISON_ARMOR_PIERCE)
+                         && target.hasEffect(StatusEffect.Type.POISON);
+        int dmg = target.receiveDamage(raw, pierceDef);
         events.add(dmg == -1
             ? BattleEvent.dodged(target.getName())
-            : BattleEvent.damage(actor.getName(), target.getName(), dmg, false));
+            : BattleEvent.damage(actor.getName(), target.getName(), dmg, pierceDef));
+
+        // Veredicto del Alba: cura al aliado más débil el 10% del daño
+        if (dmg > 0 && actor.hasPassive(RareItem.PassiveType.DEFENSE_SCALES_DAMAGE))
+            healWeakestAlly(actor, dmg, events);
 
         if (!target.isAlive()) {
             events.add(BattleEvent.enemyDied(target.getName()));
             checkBattleOver(events);
         }
-
         turnIndex++;
-        if (!battleOver) {
-            events.addAll(processUntilPlayerTurn());
-        }
+        if (!battleOver) events.addAll(processUntilPlayerTurn());
         return events;
     }
 
@@ -254,34 +270,28 @@ public class BattleEngine {
         switch (action) {
             case "attack" -> {
                 int raw = e.calculateRawDamage();
-                int dmg = target.receiveDamage(raw, false);
-                events.add(dmg == -1
-                    ? BattleEvent.dodged(target.getName())
-                    : BattleEvent.damage(e.getName(), target.getName(), dmg, false));
+                int dmg = applyDmgToChar(e, target, raw, false, events);
+                if (dmg > 0) partyTookDamage = true;
             }
             case "double_attack" -> {
                 events.add(BattleEvent.log(e.getName() + ": ¡Doble Ataque!"));
                 for (int i = 0; i < 2; i++) {
                     Character t = alive.get(new Random().nextInt(alive.size()));
                     int raw = (int)(e.calculateRawDamage() * 0.7);
-                    int dmg = t.receiveDamage(raw, false);
-                    events.add(dmg == -1
-                        ? BattleEvent.dodged(t.getName())
-                        : BattleEvent.damage(e.getName(), t.getName(), dmg, false));
+                    int dmg = applyDmgToChar(e, t, raw, false, events);
+                    if (dmg > 0) partyTookDamage = true;
                 }
             }
             case "heavy_strike", "smash" -> {
                 events.add(BattleEvent.log(e.getName() + ": ¡Golpe Aplastante!"));
                 int raw = (int)(e.calculateRawDamage() * 1.6);
-                int dmg = target.receiveDamage(raw, false);
-                events.add(dmg == -1
-                    ? BattleEvent.dodged(target.getName())
-                    : BattleEvent.damage(e.getName(), target.getName(), dmg, false));
+                int dmg = applyDmgToChar(e, target, raw, false, events);
+                if (dmg > 0) partyTookDamage = true;
             }
             case "bone_throw" -> {
                 int raw = (int)(e.getAtk() * 0.9);
-                int dmg = target.receiveDamage(raw, true);
-                events.add(BattleEvent.damage(e.getName(), target.getName(), dmg, false));
+                int dmg = applyDmgToChar(e, target, raw, true, events);
+                if (dmg > 0) partyTookDamage = true;
             }
             case "roar" -> {
                 events.add(BattleEvent.log(e.getName() + ": ¡Rugido Aterrador! (−3 ATK party)"));
@@ -290,10 +300,8 @@ public class BattleEngine {
             }
             default -> {
                 int raw = e.calculateRawDamage();
-                int dmg = target.receiveDamage(raw, false);
-                events.add(dmg == -1
-                    ? BattleEvent.dodged(target.getName())
-                    : BattleEvent.damage(e.getName(), target.getName(), dmg, false));
+                int dmg = applyDmgToChar(e, target, raw, false, events);
+                if (dmg > 0) partyTookDamage = true;
             }
         }
 
@@ -335,13 +343,24 @@ public class BattleEngine {
 
         // 52%: intentar usar habilidad aleatoria
         if (roll < 80) {
+            // Báculo del Vacío Inestable: habilidades cuestan 1 PA menos (mínimo 0)
+            int paDiscount = npc.hasPassive(RareItem.PassiveType.PA_DISCOUNT_RECOIL) ? 1 : 0;
             List<Ability> affordable = npc.getAbilities().stream()
-                .filter(a -> npc.getPa() >= a.getPaCost()).toList();
+                .filter(a -> npc.getPa() >= Math.max(0, a.getPaCost() - paDiscount)).toList();
             if (!affordable.isEmpty()) {
                 Ability ab = affordable.get(new Random().nextInt(affordable.size()));
-                npc.consumePA(ab.getPaCost());
+                npc.consumePA(Math.max(0, ab.getPaCost() - paDiscount));
                 events.add(BattleEvent.log(npc.getName() + " lanza " + ab.getName() + "!"));
                 events.addAll(applyNpcAbility(npc, ab, aliveEnemies, aliveParty));
+                // Báculo: recoil de 6 HP por hechizo lanzado
+                if (paDiscount > 0 && npc.isAlive()) {
+                    int recoil = npc.receiveDamage(6, true);
+                    if (recoil > 0)
+                        events.add(BattleEvent.log("¡Recoil Arcano! " + npc.getName()
+                            + " recibe " + recoil + " de retroceso."));
+                    if (!npc.isAlive())
+                        events.add(BattleEvent.characterDied(npc.getName()));
+                }
                 checkBattleOver(events);
                 return events;
             }
@@ -419,15 +438,11 @@ public class BattleEngine {
             List<Character> others = aliveParty.stream().filter(c -> c != npc).toList();
             Character t = others.isEmpty() ? npc : others.get(rand.nextInt(others.size()));
             events.add(BattleEvent.log(npc.getName() + " ataca a " + t.getName() + " por error!"));
-            int dmg = t.receiveDamage(raw, false);
-            events.add(dmg == -1 ? BattleEvent.dodged(t.getName())
-                : BattleEvent.damage(npc.getName(), t.getName(), dmg, false));
+            applyDmgToChar(npc, t, raw, false, events);
             if (!t.isAlive()) events.add(BattleEvent.characterDied(t.getName()));
         } else {
             events.add(BattleEvent.log(npc.getName() + " se golpea a sí mismo!"));
-            int dmg = npc.receiveDamage(raw, false);
-            events.add(dmg == -1 ? BattleEvent.dodged(npc.getName())
-                : BattleEvent.damage(npc.getName(), npc.getName(), dmg, false));
+            applyDmgToChar(npc, npc, raw, false, events);
             if (!npc.isAlive()) events.add(BattleEvent.characterDied(npc.getName()));
         }
         return events;
@@ -437,9 +452,7 @@ public class BattleEngine {
     private List<BattleEvent> applyDamageAbilityToAlly(Character actor, Ability ab, Character target) {
         List<BattleEvent> events = new ArrayList<>();
         int raw = (int)(actor.getEffectiveAtk() * ab.getDamageMultiplier());
-        int dmg = target.receiveDamage(raw, ab.isIgnoreDefense());
-        events.add(dmg == -1 ? BattleEvent.dodged(target.getName())
-            : BattleEvent.damage(actor.getName(), target.getName(), dmg, ab.isIgnoreDefense()));
+        applyDmgToChar(actor, target, raw, ab.isIgnoreDefense(), events);
         if (!target.isAlive()) events.add(BattleEvent.characterDied(target.getName()));
         return events;
     }
@@ -481,7 +494,17 @@ public class BattleEngine {
         List<BattleEvent> events = new ArrayList<>();
         if (!ab.isDamage()) return events;
 
-        int raw = (int)(actor.getEffectiveAtk() * ab.getDamageMultiplier());
+        // Veredicto del Alba: base = DEF en vez de ATK
+        int baseAtk = actor.hasPassive(RareItem.PassiveType.DEFENSE_SCALES_DAMAGE)
+                    ? actor.getEffectiveDef()
+                    : actor.getEffectiveAtk();
+        int raw = (int)(baseAtk * ab.getDamageMultiplier());
+
+        // Devastadora de Huesos
+        if (actor.hasPassive(RareItem.PassiveType.BERSERKER)) {
+            double missingPct = 1.0 - (double) actor.getHp() / actor.getHpMax();
+            raw = (int)(raw * (1.0 + 2.0 * missingPct));
+        }
 
         // Bonus de Golpe Furtivo si el objetivo está debilitado
         if (ab.getName().equals("Golpe Furtivo") &&
@@ -490,14 +513,23 @@ public class BattleEngine {
             events.add(BattleEvent.log("¡Golpe Furtivo potenciado!"));
         }
 
-        int dmg = target.receiveDamage(raw, ab.isIgnoreDefense());
+        // Beso de la Viuda: si el enemigo está envenenado, ignora 50% armadura
+        boolean pierceDef = actor.hasPassive(RareItem.PassiveType.POISON_ARMOR_PIERCE)
+                         && target.hasEffect(StatusEffect.Type.POISON);
+        boolean ignores = ab.isIgnoreDefense() || pierceDef;
+
+        int dmg = target.receiveDamage(raw, ignores);
         events.add(dmg == -1
             ? BattleEvent.dodged(target.getName())
-            : BattleEvent.damage(actor.getName(), target.getName(), dmg, ab.isIgnoreDefense()));
+            : BattleEvent.damage(actor.getName(), target.getName(), dmg, ignores));
+
+        // Veredicto del Alba: cura al aliado más débil
+        if (dmg > 0 && actor.hasPassive(RareItem.PassiveType.DEFENSE_SCALES_DAMAGE))
+            healWeakestAlly(actor, dmg, events);
 
         // Segundo golpe (Doble Ataque)
         if (ab.isDoubleHit()) {
-            int raw2 = (int)(actor.getEffectiveAtk() * ab.getDamageMultiplier());
+            int raw2 = (int)(baseAtk * ab.getDamageMultiplier());
             int dmg2 = target.receiveDamage(raw2, false);
             if (dmg2 != -1) events.add(BattleEvent.damage(actor.getName(), target.getName(), dmg2, false));
         }
@@ -507,6 +539,82 @@ public class BattleEngine {
 
         if (!target.isAlive()) events.add(BattleEvent.enemyDied(target.getName()));
         return events;
+    }
+
+    // ── Helpers de pasivos ────────────────────────────────────────────────
+
+    /** Veredicto del Alba: cura al aliado vivo con menos HP% un 10% del daño. */
+    private void healWeakestAlly(Character actor, int dmg, List<BattleEvent> events) {
+        party.stream()
+            .filter(c -> c.isAlive() && c != actor)
+            .min(java.util.Comparator.comparingDouble(c -> (double) c.getHp() / c.getHpMax()))
+            .ifPresent(weakest -> {
+                int healed = weakest.healHp(Math.max(1, dmg / 10));
+                if (healed > 0)
+                    events.add(BattleEvent.heal(actor.getName(), weakest.getName(), healed));
+            });
+    }
+
+    /**
+     * Aplica daño de un atacante (Enemy o Character NPC) a un personaje jugable,
+     * manejando todos los pasivos defensivos y ofensivos:
+     *  -1 → esquivado, -2 → bloqueado (Escudo Arcano / invencibilidad), -3 → Death Save
+     * También aplica: Égida del Mártir (absorbe 20%) y Espinas (refleja 30%).
+     */
+    private int applyDmgToChar(Object attacker, Character target, int rawDmg,
+                                boolean ignoreDefense, List<BattleEvent> events) {
+        String attackerName = attacker instanceof Character c ? c.getName() : ((Enemy) attacker).getName();
+
+        // Égida del Mártir: si Aldric está vivo con este pasivo, absorbe 20% del raw
+        int modRaw = rawDmg;
+        Character shieldBearer = party.stream()
+            .filter(c -> c.isAlive() && c != target && c.hasPassive(RareItem.PassiveType.DAMAGE_SHARE))
+            .findFirst().orElse(null);
+        int sharedAmount = 0;
+        if (shieldBearer != null) {
+            sharedAmount = (int)(rawDmg * 0.20);
+            modRaw = rawDmg - sharedAmount;
+        }
+
+        int dmg = target.receiveDamage(modRaw, ignoreDefense);
+
+        if (dmg == -1) {
+            events.add(BattleEvent.dodged(target.getName()));
+        } else if (dmg == -2) {
+            if (target.isArcaneShieldActive() || target.isDeathSaveInvincible()) {
+                // isArcaneShieldActive ya se consumió dentro de receiveDamage, pero chequeamos el tipo
+            }
+            events.add(BattleEvent.log("¡Golpe bloqueado! " + target.getName() + " es intocable."));
+            dmg = 0;
+        } else if (dmg == -3) {
+            events.add(BattleEvent.log(
+                "¡Manto del Espectro! " + target.getName() + " sobrevive con 1 HP — intocable 1 turno."));
+            dmg = 0;
+        } else {
+            events.add(BattleEvent.damage(attackerName, target.getName(), dmg, ignoreDefense));
+
+            // Égida del Mártir: aplicar porción absorbida a Aldric
+            if (shieldBearer != null && sharedAmount > 0) {
+                int aldricDmg = shieldBearer.receiveDamage(sharedAmount, true);
+                if (aldricDmg > 0) {
+                    events.add(BattleEvent.log(
+                        shieldBearer.getName() + " absorbe " + aldricDmg + " dmg (Égida del Mártir)."));
+                    if (!shieldBearer.isAlive())
+                        events.add(BattleEvent.characterDied(shieldBearer.getName()));
+                }
+            }
+
+            // Espinas: refleja 30% del daño al atacante si es un Enemy
+            if (dmg > 0 && target.hasPassive(RareItem.PassiveType.THORNS)
+                    && attacker instanceof Enemy e) {
+                int thornDmg = Math.max(1, (int)(dmg * 0.30));
+                int reflected = e.receiveDamage(thornDmg, true);
+                events.add(BattleEvent.log(
+                    "¡Espinas! " + reflected + " dmg reflejado a " + e.getName() + "."));
+                if (!e.isAlive()) events.add(BattleEvent.enemyDied(e.getName()));
+            }
+        }
+        return dmg;
     }
 
     private List<BattleEvent> applyEffect(String actorName, String targetName, Ability ab,
@@ -542,8 +650,9 @@ public class BattleEngine {
     }
 
     // ── Getters ───────────────────────────────────────────────────────────
-    public boolean isBattleOver()  { return battleOver; }
-    public boolean isPlayerWon()   { return playerWon; }
+    public boolean isBattleOver()      { return battleOver; }
+    public boolean isPlayerWon()       { return playerWon; }
+    public boolean isPartyTookDamage() { return partyTookDamage; }
     public int getTurnNumber()      { return turnNumber; }
     public List<Object> getTurnOrder() { return Collections.unmodifiableList(turnOrder); }
     public int getTurnIndex() { return turnIndex; }

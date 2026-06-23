@@ -45,14 +45,13 @@ public class CharacterCard extends JPanel {
         String text;
         Color color;
         float x, y, alpha, vy;
+        float fontSize;
 
-        FloatingNum(String t, Color c, float x, float y) {
-            this.text = t;
-            this.color = c;
-            this.x = x;
-            this.y = y;
-            this.alpha = 1f;
-            this.vy = -2.2f;
+        FloatingNum(String t, Color c, float x, float y, float fontSize) {
+            this.text = t; this.color = c;
+            this.x = x; this.y = y;
+            this.alpha = 1f; this.vy = -3.2f;
+            this.fontSize = fontSize;
         }
     }
 
@@ -127,24 +126,25 @@ public class CharacterCard extends JPanel {
     /** Flash rojo + número de daño flotante. */
     public void flashDamage(int amount) {
         startFlash(amount > 30 ? new Color(220, 40, 30) : new Color(180, 60, 50), 18);
-        spawnNumber("-" + amount, Theme.DMG_COLOR);
+        float size = amount >= 50 ? 30f : amount >= 25 ? 25f : 21f;
+        spawnNumber("-" + amount, Theme.DMG_COLOR, size);
     }
 
     /** Flash verde + número de curación flotante. */
     public void flashHeal(int amount) {
         startFlash(new Color(30, 160, 70), 14);
-        spawnNumber("+" + amount, Theme.HEAL_COLOR);
+        spawnNumber("+" + amount, Theme.HEAL_COLOR, 21f);
     }
 
     /** Flash morado para efectos de estado. */
     public void flashStatus(String label) {
         startFlash(new Color(100, 50, 160), 12);
-        spawnNumber(label, Theme.STUN_COLOR);
+        spawnNumber(label, Theme.STUN_COLOR, 18f);
     }
 
     /** Sin flash, solo texto de esquive. */
     public void flashDodge() {
-        spawnNumber("ESQUIVA", Theme.EVASION_COLOR);
+        spawnNumber("ESQUIVA", Theme.EVASION_COLOR, 18f);
     }
 
     // ── Animaciones de sprite ────────────────────────────────────────────
@@ -190,8 +190,10 @@ public class CharacterCard extends JPanel {
         flashTimer.start();
     }
 
-    private void spawnNumber(String text, Color color) {
-        floatingNums.add(new FloatingNum(text, color, CARD_W / 2f, CARD_H / 2f - 20));
+    private void spawnNumber(String text, Color color, float fontSize) {
+        // Spawn sobre el sprite (zona del torso), centrado en la card
+        float spawnY = CARD_H - SPRITE_H + SPRITE_H * 0.35f;
+        floatingNums.add(new FloatingNum(text, color, CARD_W / 2f, spawnY, fontSize));
         if (!animTimer.isRunning())
             animTimer.start();
     }
@@ -200,14 +202,12 @@ public class CharacterCard extends JPanel {
         Iterator<FloatingNum> it = floatingNums.iterator();
         while (it.hasNext()) {
             FloatingNum fn = it.next();
-            fn.y += fn.vy;
-            fn.vy *= 0.96f; // desacelera
-            fn.alpha -= 0.025f;
-            if (fn.alpha <= 0)
-                it.remove();
+            fn.y   += fn.vy;
+            fn.vy  *= 0.94f;
+            fn.alpha -= 0.020f;
+            if (fn.alpha <= 0) it.remove();
         }
-        if (floatingNums.isEmpty())
-            animTimer.stop();
+        if (floatingNums.isEmpty()) animTimer.stop();
         repaint();
     }
 
@@ -310,17 +310,21 @@ public class CharacterCard extends JPanel {
         }
 
         // Números flotantes (encima de todo)
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         for (FloatingNum fn : floatingNums) {
-            g2.setFont(Theme.labelFont(15f));
+            Font f = Theme.labelFont(fn.fontSize).deriveFont(Font.BOLD);
+            g2.setFont(f);
             FontMetrics fm = g2.getFontMetrics();
-            int tx = (int) (fn.x - fm.stringWidth(fn.text) / 2f);
+            int tx = (int)(fn.x - fm.stringWidth(fn.text) / 2f);
             int ty = (int) fn.y;
-            // sombra
-            g2.setColor(new Color(0, 0, 0, (int) (fn.alpha * 180)));
-            g2.drawString(fn.text, tx + 1, ty + 1);
-            // texto
-            g2.setColor(new Color(fn.color.getRed(), fn.color.getGreen(), fn.color.getBlue(),
-                    (int) (fn.alpha * 255)));
+            int a  = (int)(fn.alpha * 255);
+            // outline negro en 8 direcciones
+            g2.setColor(new Color(0, 0, 0, Math.min(255, (int)(fn.alpha * 200))));
+            for (int ox = -2; ox <= 2; ox += 2)
+                for (int oy = -2; oy <= 2; oy += 2)
+                    if (ox != 0 || oy != 0) g2.drawString(fn.text, tx + ox, ty + oy);
+            // texto coloreado
+            g2.setColor(new Color(fn.color.getRed(), fn.color.getGreen(), fn.color.getBlue(), a));
             g2.drawString(fn.text, tx, ty);
         }
     }

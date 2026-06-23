@@ -2,6 +2,7 @@ package com.dungeontales.core.model;
 
 import com.dungeontales.core.model.items.Item;
 import com.dungeontales.core.model.items.Potion;
+import com.dungeontales.core.model.items.RareItem;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -39,6 +40,13 @@ public class Inventory implements Serializable {
         return items.stream()
             .filter(i -> i instanceof Potion)
             .map(i -> (Potion) i)
+            .toList();
+    }
+
+    public List<RareItem> getRareItems() {
+        return items.stream()
+            .filter(i -> i instanceof RareItem)
+            .map(i -> (RareItem) i)
             .toList();
     }
 

@@ -30,11 +30,12 @@ public class EnemyCard extends JPanel {
     // ── Números flotantes ────────────────────────────────────────────────
     private static class FloatingNum {
         String text; Color color;
-        float x, y, alpha, vy;
-        FloatingNum(String t, Color c, float x, float y) {
+        float x, y, alpha, vy, fontSize;
+        FloatingNum(String t, Color c, float x, float y, float fontSize) {
             this.text = t; this.color = c;
             this.x = x; this.y = y;
-            this.alpha = 1f; this.vy = -2.2f;
+            this.alpha = 1f; this.vy = -3.2f;
+            this.fontSize = fontSize;
         }
     }
     private final List<FloatingNum> floatingNums = new ArrayList<>();
@@ -107,18 +108,19 @@ public class EnemyCard extends JPanel {
     /** Flash rojo + número de daño flotante. */
     public void flashDamage(int amount) {
         startFlash(amount > 30 ? new Color(220, 40, 30) : new Color(180, 60, 50), 18);
-        spawnNumber("-" + amount, Theme.DMG_COLOR);
+        float size = amount >= 50 ? 30f : amount >= 25 ? 25f : 21f;
+        spawnNumber("-" + amount, Theme.DMG_COLOR, size);
     }
 
     /** Flash verde + número de curación (regen de troll, etc.). */
     public void flashHeal(int amount) {
         startFlash(new Color(30, 160, 70), 14);
-        spawnNumber("+" + amount, Theme.HEAL_COLOR);
+        spawnNumber("+" + amount, Theme.HEAL_COLOR, 21f);
     }
 
     /** Texto de esquive. */
     public void flashDodge() {
-        spawnNumber("ESQUIVA", Theme.EVASION_COLOR);
+        spawnNumber("ESQUIVA", Theme.EVASION_COLOR, 18f);
     }
 
     // ── Animación interna ────────────────────────────────────────────────
@@ -137,8 +139,9 @@ public class EnemyCard extends JPanel {
         flashTimer.start();
     }
 
-    private void spawnNumber(String text, Color color) {
-        floatingNums.add(new FloatingNum(text, color, cardW / 2f, cardH / 2f - 20));
+    private void spawnNumber(String text, Color color, float fontSize) {
+        float spawnY = cardH - spriteH + spriteH * 0.35f;
+        floatingNums.add(new FloatingNum(text, color, cardW / 2f, spawnY, fontSize));
         if (!animTimer.isRunning()) animTimer.start();
     }
 
@@ -147,8 +150,8 @@ public class EnemyCard extends JPanel {
         while (it.hasNext()) {
             FloatingNum fn = it.next();
             fn.y    += fn.vy;
-            fn.vy   *= 0.96f;
-            fn.alpha -= 0.025f;
+            fn.vy   *= 0.94f;
+            fn.alpha -= 0.020f;
             if (fn.alpha <= 0) it.remove();
         }
         if (floatingNums.isEmpty()) animTimer.stop();
@@ -233,17 +236,21 @@ public class EnemyCard extends JPanel {
         }
 
         // Números flotantes
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         for (FloatingNum fn : floatingNums) {
-            g2.setFont(Theme.labelFont(15f));
+            Font f = Theme.labelFont(fn.fontSize).deriveFont(Font.BOLD);
+            g2.setFont(f);
             FontMetrics fm = g2.getFontMetrics();
             int tx = (int)(fn.x - fm.stringWidth(fn.text) / 2f);
             int ty = (int) fn.y;
-            // sombra
-            g2.setColor(new Color(0, 0, 0, (int)(fn.alpha * 180)));
-            g2.drawString(fn.text, tx + 1, ty + 1);
-            // texto
-            g2.setColor(new Color(fn.color.getRed(), fn.color.getGreen(), fn.color.getBlue(),
-                                  (int)(fn.alpha * 255)));
+            int a  = (int)(fn.alpha * 255);
+            // outline negro en 8 direcciones
+            g2.setColor(new Color(0, 0, 0, Math.min(255, (int)(fn.alpha * 200))));
+            for (int ox = -2; ox <= 2; ox += 2)
+                for (int oy = -2; oy <= 2; oy += 2)
+                    if (ox != 0 || oy != 0) g2.drawString(fn.text, tx + ox, ty + oy);
+            // texto coloreado
+            g2.setColor(new Color(fn.color.getRed(), fn.color.getGreen(), fn.color.getBlue(), a));
             g2.drawString(fn.text, tx, ty);
         }
     }

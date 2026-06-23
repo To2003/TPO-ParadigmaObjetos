@@ -122,6 +122,16 @@ public class SpriteLoader {
     }
 
     /**
+     * Carga un ícono de ítem épico eliminando el fondo negro.
+     * Busca en: /sprites/icon-items/{nombre}.png
+     */
+    public static BufferedImage getItemIcon(String name, int size) {
+        String key = "itemicon_" + name + "_" + size;
+        return cache.computeIfAbsent(key, k ->
+            loadOrPlaceholder("/sprites/icon-items/" + name + ".png", name, size, size, false));
+    }
+
+    /**
      * Carga un ícono de la pantalla de descanso eliminando el fondo negro.
      * Busca en: /sprites/icon-rest/{nombre}.png
      */

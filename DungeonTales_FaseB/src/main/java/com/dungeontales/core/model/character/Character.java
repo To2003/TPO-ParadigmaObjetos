@@ -3,6 +3,7 @@ package com.dungeontales.core.model.character;
 import com.dungeontales.core.model.Ability;
 import com.dungeontales.core.model.StatusEffect;
 import com.dungeontales.core.model.items.Armor;
+import com.dungeontales.core.model.items.RareItem;
 import com.dungeontales.core.model.items.Weapon;
 
 import java.io.Serializable;
@@ -21,9 +22,18 @@ public abstract class Character implements Serializable {
     protected int baseAtk, baseDef, baseSpd;
     protected int level, exp, expToNext;
 
-    // Equipamiento
+    // Equipamiento normal
     protected Weapon equippedWeapon;
     protected Armor  equippedArmor;
+
+    // Equipamiento raro
+    protected RareItem equippedRareWeapon;
+    protected RareItem equippedRareArmor;
+
+    // Estado de pasivos de combate (se resetean en startCombat)
+    protected boolean arcaneShieldActive;    // Túnica del Tejedor — absorbe primer golpe
+    protected boolean deathSavedThisCombat;  // Manto del Espectro — solo 1 vez por combate
+    protected boolean deathSaveInvincible;   // Manto del Espectro — intocable el turno siguiente
 
     // Habilidades y efectos
     protected final List<Ability>      abilities = new ArrayList<>();
@@ -44,9 +54,10 @@ public abstract class Character implements Serializable {
     protected abstract void initAbilities();
     public abstract String getSpriteName();
 
-    // ── Stats efectivos (base + equipo + efectos) ──────────────────────────
+    // ── Stats efectivos (base + equipo + efectos + ítems raros) ──────────
     public int getEffectiveAtk() {
         int bonus = (equippedWeapon != null ? equippedWeapon.getAtkBonus() : 0);
+        if (equippedRareWeapon != null) bonus += equippedRareWeapon.getAtkBonus();
         int effectBonus = effects.stream()
             .filter(e -> e.getType() == StatusEffect.Type.ATTACK_UP && e.isActive())
             .mapToInt(StatusEffect::getValue).sum();
@@ -55,6 +66,7 @@ public abstract class Character implements Serializable {
 
     public int getEffectiveDef() {
         int bonus = (equippedArmor != null ? equippedArmor.getDefBonus() : 0);
+        if (equippedRareArmor != null) bonus += equippedRareArmor.getDefBonus();
         int effectBonus = effects.stream()
             .filter(e -> e.getType() == StatusEffect.Type.DEFENSE_UP && e.isActive())
             .mapToInt(StatusEffect::getValue).sum();
@@ -63,16 +75,34 @@ public abstract class Character implements Serializable {
 
     public int getEffectiveSpd() {
         int bonus = (equippedArmor != null ? equippedArmor.getSpdBonus() : 0);
+        if (equippedRareArmor != null) bonus += equippedRareArmor.getSpdBonus();
+        if (equippedRareWeapon != null) bonus += equippedRareWeapon.getSpdBonus();
         return baseSpd + bonus;
+    }
+
+    public int getHpMax() {
+        int extra = (equippedRareArmor != null ? equippedRareArmor.getHpMaxBonus() : 0);
+        return hpMax + extra;
+    }
+
+    public int getPaRegen() {
+        int extra = (equippedRareArmor != null ? equippedRareArmor.getPaRegenBonus() : 0);
+        return paRegen + extra;
     }
 
     // ── Combate ───────────────────────────────────────────────────────────
     public void startCombat() {
         this.pa = 4;
+        // Activar escudo arcano al inicio si porta la Túnica del Tejedor
+        this.arcaneShieldActive   = hasPassive(RareItem.PassiveType.ARCANE_SHIELD);
+        this.deathSavedThisCombat = false;
+        this.deathSaveInvincible  = false;
     }
 
     public void startTurn() {
-        pa = Math.min(paMax, pa + paRegen);
+        pa = Math.min(paMax, pa + getPaRegen());
+        // El turno de invencibilidad del Manto del Espectro expira
+        deathSaveInvincible = false;
         Iterator<StatusEffect> it = effects.iterator();
         while (it.hasNext()) {
             StatusEffect e = it.next();
@@ -81,20 +111,48 @@ public abstract class Character implements Serializable {
         }
     }
 
+    /**
+     * Aplica daño al personaje.
+     * Retorna:
+     *  -1  → ataque esquivado (evasión)
+     *  -2  → golpe bloqueado (Escudo Arcano o invencibilidad del Manto)
+     *  -3  → Manto del Espectro activado: sobrevivió con 1 HP (ahora intocable 1 turno)
+     *  N>0 → daño real aplicado
+     */
     public int receiveDamage(int rawDmg, boolean ignoreDefense) {
+        // Evasión por efecto de estado
         if (hasEffect(StatusEffect.Type.EVASION) && Math.random() < 0.5) {
             removeEffect(StatusEffect.Type.EVASION);
-            return -1; // -1 = esquivado
+            return -1;
         }
+        // Invencibilidad post-death-save (1 turno)
+        if (deathSaveInvincible) {
+            return -2;
+        }
+        // Escudo Arcano (Túnica del Tejedor — bloquea 1 golpe al inicio del combate)
+        if (arcaneShieldActive) {
+            arcaneShieldActive = false;
+            return -2;
+        }
+
         int effectiveDef = ignoreDefense ? 0 : getEffectiveDef();
         int dmg = Math.max(1, rawDmg - effectiveDef / 2);
+
+        // Death Save (Manto del Espectro — sobrevive 1 vez con 1 HP)
+        if (hp - dmg <= 0 && !deathSavedThisCombat && hasPassive(RareItem.PassiveType.DEATH_SAVE)) {
+            hp = 1;
+            deathSavedThisCombat = true;
+            deathSaveInvincible  = true;
+            return -3;
+        }
+
         hp = Math.max(0, hp - dmg);
         return dmg;
     }
 
     public int healHp(int amount) {
         int before = hp;
-        hp = Math.min(hpMax, hp + amount);
+        hp = Math.min(getHpMax(), hp + amount);
         return hp - before;
     }
 
@@ -133,6 +191,26 @@ public abstract class Character implements Serializable {
         return false;
     }
 
+    public boolean equipRareWeapon(RareItem r) {
+        if (r.getSlot() == RareItem.Slot.WEAPON && r.fitsClass(className)) {
+            equippedRareWeapon = r; return true;
+        }
+        return false;
+    }
+
+    public boolean equipRareArmor(RareItem r) {
+        if (r.getSlot() == RareItem.Slot.ARMOR && r.fitsClass(className)) {
+            equippedRareArmor = r; return true;
+        }
+        return false;
+    }
+
+    // ── Pasivos ───────────────────────────────────────────────────────────
+    public boolean hasPassive(RareItem.PassiveType type) {
+        return (equippedRareWeapon != null && equippedRareWeapon.getPassive() == type)
+            || (equippedRareArmor  != null && equippedRareArmor.getPassive()  == type);
+    }
+
     // ── Progresión ────────────────────────────────────────────────────────
     public boolean gainExp(int amount) {
         exp += amount;
@@ -151,28 +229,30 @@ public abstract class Character implements Serializable {
         int atkGain = 1  + RNG.nextInt(3);
         int defGain = 1  + RNG.nextInt(2);
         hpMax  += hpGain;
-        hp      = Math.min(hp + hpGain, hpMax);
+        hp      = Math.min(hp + hpGain, getHpMax());
         baseAtk += atkGain;
         baseDef += defGain;
     }
 
     // ── Getters ───────────────────────────────────────────────────────────
     public boolean isNpc()        { return npc; }
-    public String getName()      { return name; }
-    public String getClassName() { return className; }
-    public int getHp()           { return hp; }
-    public int getHpMax()        { return hpMax; }
-    public int getPa()           { return pa; }
-    public int getPaMax()        { return paMax; }
-    public int getPaRegen()      { return paRegen; }
-    public int getSpd()          { return getEffectiveSpd(); }
-    public int getLevel()        { return level; }
-    public int getExp()          { return exp; }
-    public int getExpToNext()    { return expToNext; }
-    public boolean isAlive()     { return hp > 0; }
-    public boolean isStunned()   { return hasEffect(StatusEffect.Type.STUN); }
-    public List<Ability>      getAbilities() { return Collections.unmodifiableList(abilities); }
-    public List<StatusEffect> getEffects()   { return Collections.unmodifiableList(effects); }
-    public Weapon getEquippedWeapon()        { return equippedWeapon; }
-    public Armor  getEquippedArmor()         { return equippedArmor; }
+    public String getName()       { return name; }
+    public String getClassName()  { return className; }
+    public int getHp()            { return hp; }
+    public int getPa()            { return pa; }
+    public int getPaMax()         { return paMax; }
+    public int getSpd()           { return getEffectiveSpd(); }
+    public int getLevel()         { return level; }
+    public int getExp()           { return exp; }
+    public int getExpToNext()     { return expToNext; }
+    public boolean isAlive()      { return hp > 0; }
+    public boolean isStunned()    { return hasEffect(StatusEffect.Type.STUN); }
+    public boolean isArcaneShieldActive()  { return arcaneShieldActive; }
+    public boolean isDeathSaveInvincible() { return deathSaveInvincible; }
+    public List<Ability>      getAbilities()    { return Collections.unmodifiableList(abilities); }
+    public List<StatusEffect> getEffects()      { return Collections.unmodifiableList(effects); }
+    public Weapon    getEquippedWeapon()         { return equippedWeapon; }
+    public Armor     getEquippedArmor()          { return equippedArmor; }
+    public RareItem  getEquippedRareWeapon()     { return equippedRareWeapon; }
+    public RareItem  getEquippedRareArmor()      { return equippedRareArmor; }
 }

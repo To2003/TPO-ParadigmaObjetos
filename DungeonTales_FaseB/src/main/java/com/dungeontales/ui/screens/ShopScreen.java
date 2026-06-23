@@ -3,6 +3,7 @@ package com.dungeontales.ui.screens;
 import com.dungeontales.core.GameState;
 import com.dungeontales.core.model.items.Item;
 import com.dungeontales.core.model.items.Potion;
+import com.dungeontales.core.model.items.RareItem;
 import com.dungeontales.util.SpriteLoader;
 import com.dungeontales.util.Theme;
 
@@ -38,9 +39,11 @@ public class ShopScreen extends JPanel {
     private JPanel        goldPanel;
     private GameState     state;
     private JLabel        statusLabel;
+    private RareItem      shopRareItem; // ítem épico disponible esta visita (puede ser null)
 
     public ShopScreen(GameState state, Listener listener) {
         this.state = state;
+        shopRareItem = state.getRareItemPool().peekShop().orElse(null);
         loadBackground();
         setLayout(new BorderLayout());
         setOpaque(true);
@@ -268,17 +271,43 @@ public class ShopScreen extends JPanel {
             backdrop.add(card, gbc);
         }
 
-        // Relleno de celdas vacías
-        int total = SHOP_ITEMS.length;
-        int remainder = total % COLS;
-        if (remainder != 0) {
-            for (int i = remainder; i < COLS; i++) {
-                JPanel empty = new JPanel();
-                empty.setOpaque(false);
-                empty.setPreferredSize(new Dimension(CARD_W + CARD_PAD * 2, CARD_H + CARD_PAD * 2));
-                gbc.gridx = i;
-                gbc.gridy = total / COLS;
-                backdrop.add(empty, gbc);
+        // Ítem épico (aparece al final si el pool lo otorgó esta visita)
+        if (shopRareItem != null) {
+            int idx = SHOP_ITEMS.length;
+            RareItemCard rareCard = new RareItemCard(shopRareItem, state, () -> {
+                goldPanel.repaint();
+                cards.forEach(ItemCard::refreshEnabled);
+            });
+            gbc.gridx = idx % COLS;
+            gbc.gridy = idx / COLS;
+            backdrop.add(rareCard, gbc);
+
+            // Relleno de celdas vacías tras el ítem raro
+            int total = SHOP_ITEMS.length + 1;
+            int remainder = total % COLS;
+            if (remainder != 0) {
+                for (int i = remainder; i < COLS; i++) {
+                    JPanel empty = new JPanel();
+                    empty.setOpaque(false);
+                    empty.setPreferredSize(new Dimension(CARD_W + CARD_PAD * 2, CARD_H + CARD_PAD * 2));
+                    gbc.gridx = i;
+                    gbc.gridy = total / COLS;
+                    backdrop.add(empty, gbc);
+                }
+            }
+        } else {
+            // Relleno de celdas vacías sin ítem raro
+            int total = SHOP_ITEMS.length;
+            int remainder = total % COLS;
+            if (remainder != 0) {
+                for (int i = remainder; i < COLS; i++) {
+                    JPanel empty = new JPanel();
+                    empty.setOpaque(false);
+                    empty.setPreferredSize(new Dimension(CARD_W + CARD_PAD * 2, CARD_H + CARD_PAD * 2));
+                    gbc.gridx = i;
+                    gbc.gridy = total / COLS;
+                    backdrop.add(empty, gbc);
+                }
             }
         }
 
@@ -593,6 +622,164 @@ public class ShopScreen extends JPanel {
                 case RARE     -> new Color(0x40, 0x80, 0xD0);
                 case EPIC     -> new Color(0xA0, 0x40, 0xD0);
             };
+        }
+    }
+
+    // ── Tarjeta de ítem épico ──────────────────────────────────────────────
+
+    private class RareItemCard extends JPanel {
+
+        private static final Color EPIC_COLOR  = new Color(0xC0, 0x50, 0xFF);
+        private static final int   EPIC_PRICE  = 300;
+
+        private final RareItem  item;
+        private final GameState state;
+        private final Runnable  onBuy;
+        private boolean         hover    = false;
+        private boolean         sold     = false;
+
+        RareItemCard(RareItem item, GameState state, Runnable onBuy) {
+            this.item  = item;
+            this.state = state;
+            this.onBuy = onBuy;
+            setOpaque(false);
+            setPreferredSize(new Dimension(CARD_W + CARD_PAD * 2, CARD_H + CARD_PAD * 2));
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            addMouseListener(new MouseAdapter() {
+                @Override public void mouseEntered(MouseEvent e) { if (canBuy()) { hover = true;  repaint(); } }
+                @Override public void mouseExited (MouseEvent e) { hover = false; repaint(); }
+                @Override public void mouseClicked(MouseEvent e) {
+                    if (sold || !canBuy()) return;
+                    if (!state.spendGold(EPIC_PRICE)) return;
+                    state.getInventory().addItem(item);
+                    state.getRareItemPool().remove(item);
+                    sold  = true;
+                    hover = false;
+                    repaint();
+                    onBuy.run();
+                    statusLabel.setText("✦  " + item.getName() + " añadido al inventario.");
+                    javax.swing.Timer t = new javax.swing.Timer(2500, ev -> statusLabel.setText(""));
+                    t.setRepeats(false);
+                    t.start();
+                }
+            });
+        }
+
+        private boolean canBuy() { return !sold && state.getGold() >= EPIC_PRICE; }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g;
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,      RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+            boolean poor = !canBuy() && !sold;
+            int cx = hover ? CARD_PAD / 2 : CARD_PAD;
+            int cy = hover ? CARD_PAD / 2 : CARD_PAD;
+            int cw = hover ? CARD_W + CARD_PAD : CARD_W;
+            int ch = hover ? CARD_H + CARD_PAD : CARD_H;
+
+            // Glow épico en hover
+            if (hover) {
+                for (int i = 5; i >= 1; i--) {
+                    g2.setColor(new Color(EPIC_COLOR.getRed(), EPIC_COLOR.getGreen(), EPIC_COLOR.getBlue(), i * 14));
+                    g2.setStroke(new BasicStroke(i * 2f));
+                    g2.drawRoundRect(cx - i * 2, cy - i * 2, cw + i * 4, ch + i * 4, 16, 16);
+                }
+                g2.setStroke(new BasicStroke(1f));
+            }
+
+            // Fondo
+            Color bg = sold ? new Color(0x08, 0x06, 0x10, 185)
+                     : poor ? new Color(0x0C, 0x0A, 0x08, 175)
+                     : hover ? new Color(0x1A, 0x08, 0x2A, 225)
+                     : new Color(0x14, 0x06, 0x20, 205);
+            g2.setColor(bg);
+            g2.fillRoundRect(cx, cy, cw, ch, 12, 12);
+
+            // Franja superior épica
+            Color border = sold ? new Color(0x60, 0x48, 0x80) : poor ? new Color(0x40, 0x30, 0x50) : EPIC_COLOR;
+            g2.setColor(new Color(border.getRed(), border.getGreen(), border.getBlue(), hover ? 90 : 55));
+            g2.fillRoundRect(cx, cy, cw, 38, 12, 12);
+            g2.fillRect(cx, cy + 20, cw, 18);
+
+            // Borde
+            g2.setColor(border);
+            g2.setStroke(new BasicStroke(hover ? 2.2f : 1.5f));
+            g2.drawRoundRect(cx, cy, cw, ch, 12, 12);
+            g2.setStroke(new BasicStroke(1f));
+
+            // Ícono de texto (★ / slot)
+            g2.setFont(Theme.titleFont(36f));
+            FontMetrics fm = g2.getFontMetrics();
+            String symbol = item.getSlot() == RareItem.Slot.WEAPON ? "⚔" : "🛡";
+            int sx = cx + (cw - fm.stringWidth(symbol)) / 2;
+            int sy = cy + 10 + fm.getAscent();
+            g2.setColor(new Color(border.getRed(), border.getGreen(), border.getBlue(), poor ? 80 : 200));
+            g2.drawString(symbol, sx, sy);
+
+            // Separador
+            g2.setColor(new Color(border.getRed(), border.getGreen(), border.getBlue(), 70));
+            g2.drawLine(cx + 10, cy + 92, cx + cw - 10, cy + 92);
+
+            // Nombre
+            g2.setFont(Theme.labelFont(12f));
+            fm = g2.getFontMetrics();
+            String name = item.getName();
+            int nx = cx + (cw - fm.stringWidth(name)) / 2;
+            g2.setColor(new Color(0, 0, 0, 170));
+            g2.drawString(name, nx + 1, cy + 111);
+            g2.setColor(poor ? new Color(0x60, 0x54, 0x3A) : new Color(0xFF, 0xCC, 0xFF));
+            g2.drawString(name, nx, cy + 110);
+
+            // Clase requerida
+            g2.setFont(Theme.bodyFont(10f));
+            fm = g2.getFontMetrics();
+            String cls = "Solo: " + item.getRequiredClass();
+            int clsx = cx + (cw - fm.stringWidth(cls)) / 2;
+            g2.setColor(poor ? new Color(0x48, 0x40, 0x30) : new Color(0xC0, 0x90, 0xFF));
+            g2.drawString(cls, clsx, cy + 126);
+
+            // Descripción
+            g2.setColor(poor ? new Color(0x48, 0x40, 0x30) : new Color(0x88, 0x70, 0x98));
+            drawDesc(g2, item.getDescription(), cx + 8, cy + 140, cw - 16, g2.getFontMetrics());
+
+            // Precio / estado
+            g2.setFont(Theme.labelFont(sold ? 11f : poor ? 12f : 15f));
+            fm = g2.getFontMetrics();
+            String priceText = sold ? "✕  Vendido"
+                             : poor ? "◆  " + EPIC_PRICE + " GP  (sin oro)"
+                             : "◆  " + EPIC_PRICE + " GP";
+            Color priceColor = sold ? new Color(0x90, 0x70, 0xB0)
+                             : poor ? new Color(0xD0, 0x40, 0x30)
+                             : Theme.GOLD_COLOR;
+            int px = cx + (cw - fm.stringWidth(priceText)) / 2;
+            int py = cy + ch - 14;
+            g2.setColor(new Color(0, 0, 0, 190));
+            g2.drawString(priceText, px + 1, py + 1);
+            g2.setColor(priceColor);
+            g2.drawString(priceText, px, py);
+        }
+
+        private void drawDesc(Graphics2D g2, String text, int x, int y, int maxW, FontMetrics fm) {
+            String[] words = text.split(" ");
+            StringBuilder line = new StringBuilder();
+            int lineY = y;
+            for (String word : words) {
+                String test = line.isEmpty() ? word : line + " " + word;
+                if (fm.stringWidth(test) > maxW) {
+                    String l = line.toString();
+                    g2.drawString(l, x + (maxW - fm.stringWidth(l)) / 2, lineY);
+                    line = new StringBuilder(word);
+                    lineY += fm.getHeight();
+                } else {
+                    line = new StringBuilder(test);
+                }
+            }
+            if (!line.isEmpty()) {
+                String l = line.toString();
+                g2.drawString(l, x + (maxW - fm.stringWidth(l)) / 2, lineY);
+            }
         }
     }
 }
