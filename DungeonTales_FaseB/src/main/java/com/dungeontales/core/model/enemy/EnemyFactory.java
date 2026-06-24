@@ -8,7 +8,6 @@ import java.util.Random;
 public class EnemyFactory {
     private static final Random RNG = new Random();
 
-    // ── Encuentros normales ────────────────────────────────────────────────
 
     public static List<Enemy> createNormalEncounter(int mapLevel) {
         List<Enemy> enemies = new ArrayList<>();
@@ -32,7 +31,6 @@ public class EnemyFactory {
         };
     }
 
-    // ── Encuentros élite (mini-boss) ───────────────────────────────────────
 
     public static List<Enemy> createEliteEncounter(int mapLevel) {
         List<Enemy> enemies = new ArrayList<>();
@@ -53,7 +51,6 @@ public class EnemyFactory {
         return enemies;
     }
 
-    // ── Encuentros de boss ─────────────────────────────────────────────────
 
     public static List<Enemy> createBossEncounter(int mapLevel) {
         List<Enemy> enemies = new ArrayList<>();
@@ -74,7 +71,6 @@ public class EnemyFactory {
         return enemies;
     }
 
-    // ── Factory helpers (para instanciar desde fuera del paquete) ─────────
 
     public static Enemy newGoblin()          { return new Goblin(); }
     public static Enemy newSkeleton()        { return new Skeleton(); }

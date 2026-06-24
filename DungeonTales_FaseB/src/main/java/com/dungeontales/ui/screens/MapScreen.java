@@ -64,7 +64,6 @@ public class MapScreen extends JPanel {
         add(buildFooter(), BorderLayout.SOUTH);
     }
 
-    // ── Carga de íconos ────────────────────────────────────────────────────
 
     private void loadIcons() {
         nodeIcons.put(MapNode.Type.COMBAT,   SpriteLoader.getMapIcon("combat-icon",   ICON_SIZE));
@@ -92,7 +91,6 @@ public class MapScreen extends JPanel {
         } catch (Exception ignored) {}
     }
 
-    // ── HUD (barra superior) ───────────────────────────────────────────────
 
     private JPanel buildHud() {
         JPanel hud = new JPanel(new BorderLayout(20, 0));
@@ -176,7 +174,6 @@ public class MapScreen extends JPanel {
         };
     }
 
-    // ── Leyenda lateral ────────────────────────────────────────────────────
 
     private JPanel buildLegend() {
         JPanel legend = new JPanel() {
@@ -234,7 +231,6 @@ public class MapScreen extends JPanel {
         }
     }
 
-    // ── Canvas del mapa ────────────────────────────────────────────────────
 
     private JScrollPane buildScrollPane() {
         List<List<MapNode>> rows = state.getCurrentMap().getRows();
@@ -344,7 +340,6 @@ public class MapScreen extends JPanel {
         return null;
     }
 
-    // ── Dibujo del mapa ────────────────────────────────────────────────────
 
     private void drawMap(Graphics2D g, List<List<MapNode>> rows) {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -518,7 +513,6 @@ public class MapScreen extends JPanel {
         };
     }
 
-    // ── Footer ─────────────────────────────────────────────────────────────
 
     private JPanel buildFooter() {
         JPanel bar = new JPanel(new BorderLayout());

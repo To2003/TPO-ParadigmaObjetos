@@ -6,7 +6,6 @@ import java.util.*;
 /** Mapa de nodos generado proceduralmente, estilo Slay the Spire. */
 public class GameMap implements Serializable {
 
-    // ── Serialized (persisted in JSON) ───────────────────────────────────
     private final long   seed;
     private final int    mapLevel;
     private int          currentNodeRow = 0;
@@ -14,7 +13,7 @@ public class GameMap implements Serializable {
     // Coordenadas de cada nodo visitado vía advance() (no incluye el nodo inicio)
     private List<int[]>  visitedNodes   = new ArrayList<>();
 
-    // ── Transient (reconstructed from seed after load) ────────────────────
+    // transient: Gson no los serializa; se reconstruyen desde el seed en postLoad()
     private transient List<List<MapNode>> rows;
     private transient MapNode             currentNode;
 
@@ -33,7 +32,6 @@ public class GameMap implements Serializable {
         generate();
     }
 
-    // ── Rebuild after Gson deserialization ────────────────────────────────
 
     /**
      * Regenera el grafo desde el seed y reaplica el estado de visitas guardado.
@@ -54,7 +52,6 @@ public class GameMap implements Serializable {
         if (rows == null) postLoad();
     }
 
-    // ── Graph generation ──────────────────────────────────────────────────
 
     private void generate() {
         rows = new ArrayList<>();
@@ -122,7 +119,6 @@ public class GameMap implements Serializable {
                 "Nodo no encontrado: fila=" + row + " col=" + col));
     }
 
-    // ── Public API ────────────────────────────────────────────────────────
 
     /** Nodos disponibles desde la posición actual. */
     public List<MapNode> getAvailableNodes() {

@@ -19,7 +19,6 @@ public class CharacterCard extends JPanel {
     private static final int SPRITE_W = 205;
     private static final int SPRITE_H = 480;
 
-    // ── Modelo ───────────────────────────────────────────────────────────
     private final Character character;
     private final AnimatedBar hpBar;
     private final AnimatedBar expBar;
@@ -31,16 +30,13 @@ public class CharacterCard extends JPanel {
     private boolean targetable = false;
     private BufferedImage sprite;
 
-    // ── Animación de sprites ─────────────────────────────────────────────
     private final CharacterAnimator animator;
     private boolean deathOverlayReady = false;
 
-    // ── Flash de impacto ─────────────────────────────────────────────────
     private Color flashColor;
     private float flashAlpha = 0f;
     private Timer flashTimer;
 
-    // ── Números flotantes ────────────────────────────────────────────────
     private static class FloatingNum {
         String text;
         Color color;
@@ -82,7 +78,6 @@ public class CharacterCard extends JPanel {
         animTimer = new Timer(16, e -> tickAnimations());
     }
 
-    // ── API pública ──────────────────────────────────────────────────────
 
     public String getCharacterName() {
         return character.getName();
@@ -147,7 +142,6 @@ public class CharacterCard extends JPanel {
         spawnNumber("ESQUIVA", Theme.EVASION_COLOR, 18f);
     }
 
-    // ── Animaciones de sprite ────────────────────────────────────────────
 
     public void playAttack() {
         animator.play(CharacterAnimator.State.ATTACK);
@@ -170,7 +164,6 @@ public class CharacterCard extends JPanel {
         animator.play(CharacterAnimator.State.DEATH);
     }
 
-    // ── Animación interna ────────────────────────────────────────────────
 
     private void startFlash(Color color, int frames) {
         if (flashTimer != null)
@@ -211,7 +204,6 @@ public class CharacterCard extends JPanel {
         repaint();
     }
 
-    // ── Pintura ──────────────────────────────────────────────────────────
 
     @Override
     protected void paintComponent(Graphics g) {

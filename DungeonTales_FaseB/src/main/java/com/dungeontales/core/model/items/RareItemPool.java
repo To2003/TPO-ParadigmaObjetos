@@ -26,7 +26,6 @@ public class RareItemPool implements Serializable {
     public RareItemPool() {
         pool = new ArrayList<>();
 
-        // ── Pícaro (Kira) ─────────────────────────────────────────────────
         pool.add(new RareItem(
             "Beso de la Viuda",
             "Si el enemigo está envenenado, ignora el 50% de su armadura.",
@@ -41,7 +40,6 @@ public class RareItemPool implements Serializable {
             RareItem.PassiveType.DEATH_SAVE,
             0, 5, 4, 0, 0));
 
-        // ── Paladín (Aldric) ──────────────────────────────────────────────
         pool.add(new RareItem(
             "Veredicto del Alba",
             "El daño escala con la armadura de Aldric. Cura al aliado más débil un 10% del daño.",
@@ -56,7 +54,6 @@ public class RareItemPool implements Serializable {
             RareItem.PassiveType.DAMAGE_SHARE,
             0, 12, 0, 30, 0));
 
-        // ── Guerrero (Bronn) ──────────────────────────────────────────────
         pool.add(new RareItem(
             "Devastadora de Huesos",
             "Sed de Sangre: el daño aumenta un 2% por cada 1% de HP faltante.",
@@ -71,7 +68,6 @@ public class RareItemPool implements Serializable {
             RareItem.PassiveType.THORNS,
             0, 10, 0, 25, 0));
 
-        // ── Mago (Santi) ──────────────────────────────────────────────────
         pool.add(new RareItem(
             "Báculo del Vacío Inestable",
             "Las habilidades cuestan 1 PA menos, pero cada hechizo inflige recoil a Santi.",
@@ -87,7 +83,6 @@ public class RareItemPool implements Serializable {
             0, 4, 0, 0, 2));
     }
 
-    // ── API pública ───────────────────────────────────────────────────────
 
     public boolean isEmpty() { return pool.isEmpty(); }
     public int size()        { return pool.size(); }
@@ -125,7 +120,6 @@ public class RareItemPool implements Serializable {
         pool.remove(item);
     }
 
-    // ── Internos ──────────────────────────────────────────────────────────
 
     private Optional<RareItem> rollGuaranteed() {
         if (pool.isEmpty()) return Optional.empty();

@@ -11,10 +11,9 @@ import java.util.*;
 
 public abstract class Character implements Serializable {
 
-    // Control: si es true el engine lo mueve automáticamente (no el jugador)
+    // si es true el engine lo mueve automáticamente (no el jugador)
     protected boolean npc = false;
 
-    // Stats base
     protected String name;
     protected String className;
     protected int hpMax, hp;
@@ -22,20 +21,17 @@ public abstract class Character implements Serializable {
     protected int baseAtk, baseDef, baseSpd;
     protected int level, exp, expToNext;
 
-    // Equipamiento normal
     protected Weapon equippedWeapon;
     protected Armor  equippedArmor;
 
-    // Equipamiento raro
     protected RareItem equippedRareWeapon;
     protected RareItem equippedRareArmor;
 
-    // Estado de pasivos de combate (se resetean en startCombat)
+    // pasivos de combate — se resetean al inicio de cada batalla
     protected boolean arcaneShieldActive;    // Túnica del Tejedor — absorbe primer golpe
     protected boolean deathSavedThisCombat;  // Manto del Espectro — solo 1 vez por combate
     protected boolean deathSaveInvincible;   // Manto del Espectro — intocable el turno siguiente
 
-    // Habilidades y efectos
     protected final List<Ability>      abilities = new ArrayList<>();
     protected final List<StatusEffect> effects   = new ArrayList<>();
 
@@ -54,7 +50,6 @@ public abstract class Character implements Serializable {
     protected abstract void initAbilities();
     public abstract String getSpriteName();
 
-    // ── Stats efectivos (base + equipo + efectos + ítems raros) ──────────
     public int getEffectiveAtk() {
         int bonus = (equippedWeapon != null ? equippedWeapon.getAtkBonus() : 0);
         if (equippedRareWeapon != null) bonus += equippedRareWeapon.getAtkBonus();
@@ -90,7 +85,6 @@ public abstract class Character implements Serializable {
         return paRegen + extra;
     }
 
-    // ── Combate ───────────────────────────────────────────────────────────
     public void startCombat() {
         this.pa = 4;
         // Activar escudo arcano al inicio si porta la Túnica del Tejedor
@@ -180,7 +174,6 @@ public abstract class Character implements Serializable {
         return pa - before;
     }
 
-    // ── Equipo ────────────────────────────────────────────────────────────
     public boolean equipWeapon(Weapon w) {
         if (w.fitsClass(className)) { equippedWeapon = w; return true; }
         return false;
@@ -205,13 +198,11 @@ public abstract class Character implements Serializable {
         return false;
     }
 
-    // ── Pasivos ───────────────────────────────────────────────────────────
     public boolean hasPassive(RareItem.PassiveType type) {
         return (equippedRareWeapon != null && equippedRareWeapon.getPassive() == type)
             || (equippedRareArmor  != null && equippedRareArmor.getPassive()  == type);
     }
 
-    // ── Progresión ────────────────────────────────────────────────────────
     public boolean gainExp(int amount) {
         exp += amount;
         if (exp >= expToNext) {
@@ -234,7 +225,6 @@ public abstract class Character implements Serializable {
         baseDef += defGain;
     }
 
-    // ── Getters ───────────────────────────────────────────────────────────
     public boolean isNpc()        { return npc; }
     public String getName()       { return name; }
     public String getClassName()  { return className; }

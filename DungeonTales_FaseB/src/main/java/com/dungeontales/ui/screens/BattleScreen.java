@@ -41,39 +41,35 @@ public class BattleScreen extends JPanel {
     private final Inventory             inventory;
     private final Listener              listener;
 
-    // Componentes UI
     private final List<CharacterCard>   charCards   = new ArrayList<>();
     private final List<EnemyCard>       enemyCards  = new ArrayList<>();
     private       JPanel                actionPanel;
     private final JLabel                turnLabel;
     private final JPanel                carouselPanel;
 
-    // Bottom-bar (construido una vez en buildBottomPanel)
     private JLabel              statusLabel;
     private JButton             endTurnBtn;
     private JWindow             tooltipWindow;
     private Character           currentActor;
     private boolean             actionsEnabled = true;
 
-    // Party HUD
     private final List<JLabel>       hudNameLabels = new ArrayList<>();
     private final List<AnimatedBar>  hudHpBars     = new ArrayList<>();
     private JLabel                   hudPaLabel;
 
-    // Selección de enemigo
     private Enemy        selectedEnemy  = null;
     private JPanel       targetOverlay;
     private JLabel       enemyNameLabel;
     private JLabel       enemyHpLabel;
     private AnimatedBar  enemyHpBar;
 
-    // Targeting de aliado (pociones y habilidades)
+    // targeting de aliado para pociones y habilidades de soporte
     private enum TargetMode { NONE, WAITING_ALLY }
     private TargetMode targetMode    = TargetMode.NONE;
     private Potion     pendingPotion  = null;
     private com.dungeontales.core.model.Ability pendingAbility = null;
 
-    // Timer para procesar eventos con delay visual
+    // cola de eventos con delay visual entre animaciones
     private final List<BattleEvent> pendingEvents = new ArrayList<>();
     private Timer eventTimer;
     private final java.awt.image.BufferedImage background;
@@ -90,7 +86,6 @@ public class BattleScreen extends JPanel {
         setBackground(Theme.BG_DARK);
         setLayout(new BorderLayout(0, 0));
 
-        // ── Header: turno actual y carrusel ─ overlay transparente ──────────
         JPanel header = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g;
@@ -113,14 +108,12 @@ public class BattleScreen extends JPanel {
 
         header.add(titlePanel);
 
-        // Panel para el carrusel
         carouselPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 5));
         carouselPanel.setOpaque(false);
         header.add(carouselPanel);
 
         add(header, BorderLayout.NORTH);
 
-        // ── Centro: party vs enemigos ─ transparente, bg lo pinta BattleScreen ──
         // GridBagLayout sin weightx → el grupo completo (party+gap+enemigos) queda centrado
         JPanel centerPanel = new JPanel(new GridBagLayout());
         centerPanel.setOpaque(false);
@@ -203,11 +196,9 @@ public class BattleScreen extends JPanel {
             });
         }
 
-        // Timer de eventos: un evento cada 400ms para que se vean las animaciones
         eventTimer = new Timer(400, e -> processNextEvent());
         eventTimer.setRepeats(false);
 
-        // Iniciar
         initBattle();
     }
 
@@ -218,7 +209,6 @@ public class BattleScreen extends JPanel {
         hideTooltip();
     }
 
-    // ── Fondo a pantalla completa ───────────────────────────────────────────
 
     @Override
     protected void paintComponent(Graphics g) {
@@ -253,7 +243,6 @@ public class BattleScreen extends JPanel {
         }
     }
 
-    // ── Inicialización ──────────────────────────────────────────────────────
 
     private void initBattle() {
         updateCarousel();
@@ -262,7 +251,6 @@ public class BattleScreen extends JPanel {
         processNextEvent();
     }
 
-    // ── Procesamiento de eventos ───────────────────────────────────────────
 
     private void processNextEvent() {
         if (pendingEvents.isEmpty()) {
@@ -271,7 +259,6 @@ public class BattleScreen extends JPanel {
                 if (engine.isPlayerTurn()) {
                     buildActionPanel();
                 } else {
-                    // Procesar turno de enemigos
                     List<BattleEvent> events = engine.processUntilPlayerTurn();
                     pendingEvents.addAll(events);
                     eventTimer.start();
@@ -326,9 +313,6 @@ public class BattleScreen extends JPanel {
                 boolean perfectClear = !engine.isPartyTookDamage();
                 listener.onBattleWon(totalExp, totalGold, null, levelUps, perfectClear);
             });
-            case LEVEL_UP -> {
-                // Ya manejado arriba
-            }
             case BATTLE_LOST -> SwingUtilities.invokeLater(listener::onBattleGameOver);
             default -> {}
         }
@@ -376,7 +360,6 @@ public class BattleScreen extends JPanel {
         carouselPanel.repaint();
     }
 
-    // ── Overlay flotante de enemigo seleccionado ───────────────────────────
 
     private void buildTargetOverlay() {
         enemyNameLabel = new JLabel(" ");
@@ -423,15 +406,13 @@ public class BattleScreen extends JPanel {
         targetOverlay.setVisible(false);
     }
 
-    // ── Bottom bar ─────────────────────────────────────────────────────────
 
     private JPanel buildBottomPanel() {
-        // ACTION PANEL (CENTER – reconstruido cada turno)
         actionPanel = new JPanel();
         actionPanel.setOpaque(false);
         actionPanel.setLayout(new BoxLayout(actionPanel, BoxLayout.Y_AXIS));
 
-        // LEFT: Party HUD — panel con fondo semitransparente
+        // panel izquierdo: HUD de la party con barras de HP
         JPanel left = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -482,7 +463,6 @@ public class BattleScreen extends JPanel {
         left.add(statusLabel);
         left.add(Box.createVerticalGlue());
 
-        // RIGHT: solo botón terminar turno
         endTurnBtn = new JButton("↷  Terminar turno");
         Theme.styleEndTurnButton(endTurnBtn);
         endTurnBtn.setPreferredSize(new Dimension(160, 50));
@@ -518,7 +498,6 @@ public class BattleScreen extends JPanel {
         return bottom;
     }
 
-    // ── Panel de acciones del jugador ──────────────────────────────────────
 
     private void buildActionPanel() {
         hideTooltip();
@@ -532,7 +511,6 @@ public class BattleScreen extends JPanel {
         refreshHUD();
         statusLabel.setText(" ");
 
-        // Pestañas
         JButton skillsTab = new JButton("⚔  Habilidades");
         JButton itemsTab  = new JButton("o  Consumibles");
         styleTabBtn(skillsTab, true);
@@ -626,7 +604,6 @@ public class BattleScreen extends JPanel {
         return bar;
     }
 
-    // ── Icono de habilidad ──────────────────────────────────────────────────
 
     private JPanel buildAbilityIcon(BufferedImage img, String symbol, String name, int paCost, String desc,
                                     Color baseColor, boolean enabled, Runnable action) {
@@ -636,13 +613,11 @@ public class BattleScreen extends JPanel {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 int w = getWidth(), h = getHeight();
-                // Fondo
                 Color bg = !enabled
                     ? new Color(baseColor.getRed()/3, baseColor.getGreen()/3, baseColor.getBlue()/3)
                     : hovered[0] ? baseColor.brighter() : baseColor;
                 g2.setColor(bg);
                 g2.fillRoundRect(0, 0, w-1, h-1, 10, 10);
-                // Borde
                 g2.setColor(hovered[0] && enabled ? new Color(0xC8, 0x92, 0x28) : new Color(0x40, 0x30, 0x20));
                 g2.setStroke(new BasicStroke(hovered[0] && enabled ? 2f : 1.5f));
                 g2.drawRoundRect(0, 0, w-2, h-2, 10, 10);
@@ -742,7 +717,6 @@ public class BattleScreen extends JPanel {
         return icon;
     }
 
-    // ── Helpers de estilo e iconos ──────────────────────────────────────────
 
     private void styleTabBtn(JButton btn, boolean active) {
         btn.setFont(Theme.bodyFont(10f));
@@ -777,7 +751,6 @@ public class BattleScreen extends JPanel {
         };
     }
 
-    // ── Tooltip personalizado ───────────────────────────────────────────────
 
     private void showTooltip(Component anchor, String name, int paCost, String desc) {
         hideTooltip();
@@ -841,7 +814,6 @@ public class BattleScreen extends JPanel {
         t.start();
     }
 
-    // ── Targeting de aliados ───────────────────────────────────────────────
 
     private void enterAllyTargeting(Potion potion) {
         pendingPotion = potion;
@@ -960,7 +932,6 @@ public class BattleScreen extends JPanel {
         if (endTurnBtn != null) endTurnBtn.setEnabled(enabled);
     }
 
-    // ── Selección de enemigo ───────────────────────────────────────────────
 
     private void selectEnemy(Enemy e) {
         selectedEnemy = e;
@@ -985,15 +956,12 @@ public class BattleScreen extends JPanel {
         showStatus("Seleccioná un objetivo haciendo click en un enemigo.", Theme.STUN_COLOR);
     }
 
-    // ── Animaciones de impacto ─────────────────────────────────────────────
 
     private void triggerAnimation(BattleEvent event) {
         switch (event.type) {
             case DAMAGE_DEALT -> {
-                // Actor attacks
                 CharacterCard actor = findCharCard(event.actorName);
                 if (actor != null) actor.playAttack();
-                // Target receives hit
                 CharacterCard target = findCharCard(event.targetName);
                 if (target != null) { target.playHit(); target.flashDamage(event.value); }
                 else {
@@ -1051,7 +1019,6 @@ public class BattleScreen extends JPanel {
             .findFirst().orElse(null);
     }
 
-    // ── Refresh visual ─────────────────────────────────────────────────────
 
     private void refreshAllCards() {
         charCards.forEach(CharacterCard::refresh);
@@ -1079,7 +1046,6 @@ public class BattleScreen extends JPanel {
         charCards.forEach(c -> c.setActive(c.getCharacterName().equals(name)));
     }
 
-    // ── Solapamiento horizontal (null-layout con bottom-anchor) ────────────
     // getPreferredSize() correcto → el GridBagLayout externo reserva el espacio justo.
     // doLayout() ancla cada carta al fondo del panel independientemente de su alto.
     // Z-order: index 0 = más alta (pintada encima), index n-1 = más baja (detrás).

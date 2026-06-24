@@ -22,12 +22,10 @@ public class EnemyCard extends JPanel {
     private BufferedImage     sprite;
     private boolean           targeted = false;
 
-    // ── Flash de impacto ─────────────────────────────────────────────────
     private Color  flashColor;
     private float  flashAlpha = 0f;
     private Timer  flashTimer;
 
-    // ── Números flotantes ────────────────────────────────────────────────
     private static class FloatingNum {
         String text; Color color;
         float x, y, alpha, vy, fontSize;
@@ -86,7 +84,6 @@ public class EnemyCard extends JPanel {
         animTimer = new Timer(16, e -> tickAnimations());
     }
 
-    // ── API pública ──────────────────────────────────────────────────────
 
     public void setTargeted(boolean targeted) {
         this.targeted = targeted;
@@ -123,7 +120,6 @@ public class EnemyCard extends JPanel {
         spawnNumber("ESQUIVA", Theme.EVASION_COLOR, 18f);
     }
 
-    // ── Animación interna ────────────────────────────────────────────────
 
     private void startFlash(Color color, int frames) {
         if (flashTimer != null) flashTimer.stop();
@@ -158,7 +154,6 @@ public class EnemyCard extends JPanel {
         repaint();
     }
 
-    // ── Pintura ──────────────────────────────────────────────────────────
 
     @Override
     protected void paintComponent(Graphics g) {

@@ -8,7 +8,6 @@ import com.dungeontales.util.Theme;
 import javax.swing.*;
 import java.awt.*;
 
-// ─── ResultScreen ─────────────────────────────────────────────────────────────
 public class ResultScreen extends JPanel {
     public interface Listener { void onContinue(); }
 

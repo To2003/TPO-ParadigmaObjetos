@@ -33,7 +33,6 @@ public class CharacterAnimator {
         loadFrames(characterName, displayW, displayH);
     }
 
-    // ── Public API ────────────────────────────────────────────────────────
 
     public void setOnFrameChange(Runnable r)  { this.onFrameChange  = r; }
     public void setOnAnimComplete(Runnable r)  { this.onAnimComplete = r; }
@@ -67,7 +66,6 @@ public class CharacterAnimator {
 
     public void dispose() { if (timer != null) timer.stop(); }
 
-    // ── Internal ──────────────────────────────────────────────────────────
 
     private void advance(State state, BufferedImage[] arr) {
         frameIndex++;
@@ -95,7 +93,6 @@ public class CharacterAnimator {
 
     private void notifyFrameChange() { if (onFrameChange != null) onFrameChange.run(); }
 
-    // ── Frame loading ─────────────────────────────────────────────────────
 
     private void loadFrames(String name, int dw, int dh) {
         String base = Character.toUpperCase(name.charAt(0)) + name.substring(1).toLowerCase();

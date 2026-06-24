@@ -55,7 +55,6 @@ public class FloorTransitionScreen extends JPanel {
         g2.dispose();
     }
 
-    // ── Card central ──────────────────────────────────────────────────────────
 
     private JPanel buildCard(GameState state, int fromLevel, Listener listener) {
         int nextLevel = fromLevel + 1;
@@ -80,7 +79,6 @@ public class FloorTransitionScreen extends JPanel {
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBorder(BorderFactory.createEmptyBorder(32, 40, 32, 40));
 
-        // ── Título ────────────────────────────────────────────────────────
         JLabel floorDone = new JLabel("✦  PISO " + fromLevel + " COMPLETADO  ✦", SwingConstants.CENTER);
         floorDone.setFont(Theme.titleFont(28f));
         floorDone.setForeground(GOLD);
@@ -105,7 +103,6 @@ public class FloorTransitionScreen extends JPanel {
         card.add(goldLine());
         card.add(Box.createVerticalStrut(16));
 
-        // ── Estado de la party post-curación ─────────────────────────────
         JLabel partyTitle = new JLabel("ESTADO DE LA PARTY", SwingConstants.CENTER);
         partyTitle.setFont(Theme.labelFont(12f).deriveFont(Font.BOLD));
         partyTitle.setForeground(GOLD_DIM);
@@ -122,7 +119,6 @@ public class FloorTransitionScreen extends JPanel {
         card.add(goldLine());
         card.add(Box.createVerticalStrut(20));
 
-        // ── Botón continuar ───────────────────────────────────────────────
         JButton continueBtn = new JButton("Continuar al Piso " + nextLevel + "  ⟶");
         Theme.styleMenuButton(continueBtn);
         continueBtn.setAlignmentX(Component.CENTER_ALIGNMENT);

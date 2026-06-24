@@ -10,7 +10,6 @@ import java.io.InputStream;
  */
 public class Theme {
 
-    // ── Fondos ────────────────────────────────────────────────────────────
     public static final Color BG_DARK       = new Color(0x00, 0x00, 0x00);  // negro puro para camuflar sprites
     public static final Color BG_PANEL      = new Color(0x1A, 0x14, 0x10);  // panel oscuro
     public static final Color BG_CARD       = new Color(0x22, 0x1A, 0x14);  // card de personaje
@@ -24,19 +23,16 @@ public class Theme {
     public static final Color BG_BUTTON_ITEM     = new Color(0x0E, 0x28, 0x18);  // botón ítem
     public static final Color BG_BUTTON_ITEM_HOV = new Color(0x1A, 0x3E, 0x26);  // botón ítem hover
 
-    // ── Bordes ────────────────────────────────────────────────────────────
     public static final Color BORDER        = new Color(0x4A, 0x3A, 0x2E);  // borde estándar
     public static final Color BORDER_ACTIVE = new Color(0xC8, 0xA0, 0x60);  // borde personaje activo
     public static final Color BORDER_ENEMY  = new Color(0x7A, 0x2A, 0x1A);  // borde enemigo
 
-    // ── Textos ────────────────────────────────────────────────────────────
     public static final Color TEXT_PRIMARY   = new Color(0xD4, 0xC0, 0x90);  // dorado principal
     public static final Color TEXT_SECONDARY = new Color(0x8A, 0x70, 0x50);  // texto secundario
     public static final Color TEXT_MUTED     = new Color(0x5A, 0x48, 0x38);  // texto atenuado
     public static final Color TEXT_WHITE     = new Color(0xE8, 0xE0, 0xD0);  // blanco cálido
     public static final Color TEXT_ENEMY     = new Color(0xE0, 0x70, 0x60);  // nombre enemigo
 
-    // ── Barras ────────────────────────────────────────────────────────────
     public static final Color HP_FULL   = new Color(0xC0, 0x35, 0x28);  // HP alto
     public static final Color HP_MED    = new Color(0xD0, 0x80, 0x20);  // HP medio
     public static final Color HP_LOW    = new Color(0xE0, 0x30, 0x20);  // HP bajo (más rojo)
@@ -44,23 +40,19 @@ public class Theme {
     public static final Color BAR_BG    = new Color(0x2A, 0x20, 0x1A);  // fondo de barras
     public static final Color EXP_BAR   = new Color(0x80, 0xA0, 0x30);  // barra experiencia
 
-    // ── Efectos de estado ─────────────────────────────────────────────────
     public static final Color POISON_COLOR  = new Color(0x40, 0xC0, 0x60);
     public static final Color STUN_COLOR    = new Color(0xE0, 0xD0, 0x40);
     public static final Color SHIELD_COLOR  = new Color(0x40, 0x80, 0xE0);
     public static final Color FURY_COLOR    = new Color(0xE0, 0x50, 0x30);
     public static final Color EVASION_COLOR = new Color(0xA0, 0x60, 0xE0);
 
-    // ── Colores de acción / feedback ──────────────────────────────────────
     public static final Color DMG_COLOR     = new Color(0xFF, 0x60, 0x40);  // número de daño
     public static final Color HEAL_COLOR    = new Color(0x60, 0xE0, 0x80);  // número de curación
     public static final Color GOLD_COLOR    = new Color(0xF0, 0xC0, 0x40);  // oro
     public static final Color EXP_COLOR     = new Color(0x80, 0xC0, 0xF0);  // experiencia
 
-    // ── Separador ─────────────────────────────────────────────────────────
     public static final Color SEPARATOR     = new Color(0x3A, 0x2A, 0x20);
 
-    // ── Fuentes ───────────────────────────────────────────────────────────
     private static Font baseFont;
     private static Font titleFont;
 
@@ -114,7 +106,6 @@ public class Theme {
         return new Font("Monospaced", Font.PLAIN, (int) size);
     }
 
-    // ── Helpers de estilo para botones ────────────────────────────────────
     public static void styleButton(JButton btn) {
         btn.setBackground(BG_BUTTON);
         btn.setForeground(TEXT_PRIMARY);

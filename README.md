@@ -126,6 +126,12 @@ En caso de derrota total de la party, en cambio, aparece la pantalla de *Game Ov
 * Las cuatro pantallas de interfaz diseñadas como *wireframes* con la estética final.
 * Prototipo funcional en Java de terminal que corría el juego completo: mapa, combate, descanso, tienda y tesoro.
 
+### Fase B — Completada
+* Interfaz gráfica completa en Java Swing con sprites, fondos ilustrados y animaciones.
+* Todas las pantallas implementadas: menú, party, mapa, batalla, resultados, descanso, tienda, tesoro y transición de piso.
+* Nuevo personaje (El Mago, NPC controlado por IA), 3 pisos con escala de dificultad, ítems épicos con pasivos únicos.
+* Sistema de guardado a JSON con Gson y generación procedural de mapa por seed.
+
 ---
 
 ## Fase B — Interfaz gráfica completa
@@ -145,15 +151,45 @@ Se sumó un cuarto integrante a la party, controlado por IA (no por el jugador).
 ### Pantallas implementadas
 Cada pantalla es un panel independiente que se intercambia desde la ventana principal según la fase del juego:
 
-* **Menú principal** — Nueva partida / Cargar partida / Salir.
-* **Party Screen** — Vista de los cuatro personajes antes de entrar al mapa.
-* **Mapa de nodos** — Árbol generado proceduralmente con íconos por tipo de nodo (combate, élite, descanso, tienda, tesoro, jefe).
-* **Pantalla de batalla** — Layout izquierda/derecha: cards de la party vs. cards de enemigos, barra de acciones con costos de PA, log de combate con delay visual entre eventos, selección de objetivo (enemigo y aliado), botón de usar poción y terminar turno.
-* **Pantalla de resultado** — EXP y oro ganado, subidas de nivel, ítem encontrado, estado de la party.
-* **Descanso** — Opciones de curar HP o meditar.
-* **Tienda** — Compra de pociones con el oro acumulado.
-* **Tesoro** — Recompensa aleatoria: EXP, oro o curación.
-* **Transición de piso** — Pantalla entre niveles al derrotar al jefe.
+#### Menú principal
+![Menú principal](imagenes/faseB/menu.png)
+Nueva partida, cargar partida (deshabilitado si no hay save), fondo atmosférico con título tallado en piedra.
+
+#### Party Screen
+![Party Screen](imagenes/faseB/party.png)
+Vista previa de los cuatro personajes antes de entrar al mapa: stats, equipo y habilidades de cada uno.
+
+#### Mapa de nodos
+![Mapa de nodos](imagenes/faseB/mapa.png)
+Árbol generado proceduralmente con íconos por tipo de nodo (combate, élite, descanso, tienda, tesoro, jefe). El camino recorrido queda marcado.
+
+#### Pantalla de batalla
+![Pantalla de batalla](imagenes/faseB/batalla.png)
+Layout izquierda/derecha: cards de la party vs. cards de enemigos, barra de acciones con costos de PA, log de combate con delay visual entre eventos, selección de objetivo.
+
+#### Selección de objetivo / uso de poción
+![Targeting en batalla](imagenes/faseB/batalla-targeting.png)
+Estado de targeting activo: el panel de acciones muestra los aliados seleccionables al usar una poción o habilidad de soporte.
+
+#### Pantalla de resultado
+![Pantalla de resultado](imagenes/faseB/resultado.png)
+EXP y oro ganado, subidas de nivel resaltadas, ítem encontrado y estado final de HP de la party.
+
+#### Descanso
+![Pantalla de descanso](imagenes/faseB/descanso.png)
+Dos opciones: curar toda la party (+30% HP) o meditar con un personaje (+50% HP a uno elegido).
+
+#### Tienda
+![Tienda](imagenes/faseB/tienda.png)
+Compra de pociones con el oro acumulado. Muestra precio y stock de cada ítem.
+
+#### Tesoro
+![Tesoro](imagenes/faseB/tesoro.png)
+Recompensa aleatoria al visitar un nodo de tesoro: EXP, oro o curación.
+
+#### Transición de piso
+![Transición de piso](imagenes/faseB/transicion.png)
+Pantalla entre niveles al derrotar al jefe, antes de generar el nuevo mapa del siguiente piso.
 
 ### Generación procedural del mapa
 El mapa se genera a partir de un *seed* aleatorio (igual que Slay the Spire): 12 filas intermedias con 2-3 nodos cada una, conectadas con bifurcaciones. El seed se guarda en el archivo de partida para reconstruir exactamente el mismo grafo al cargar, sin guardar cada nodo individualmente.

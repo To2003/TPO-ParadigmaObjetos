@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs sed -i '/^[[:space:]]*\\\\/\\\\/ ──/d')",
+      "Bash(grep -n '// Panel central\\\\|// Título\\\\|// Botones\\\\|// Fondo semitransparente$\\\\|// Borde$\\\\|// Ícono circular\\\\|// Textos\\\\|// Subtítulo\\\\|// Separador de diamantes\\\\|// Línea decorativa' /home/toto/Documentos/CODE/TPO-ParadigmaObjetos/DungeonTales_FaseB/src/main/java/com/dungeontales/ui/screens/RestScreen.java)",
+      "Bash(grep -n '// Todo el contenido\\\\|// Fondo$\\\\|// Borde exterior\\\\|// Sombra$\\\\|// Texto principal' /home/toto/Documentos/CODE/TPO-ParadigmaObjetos/DungeonTales_FaseB/src/main/java/com/dungeontales/ui/screens/MainMenuScreen.java)"
+    ]
+  }
+}

@@ -50,7 +50,6 @@ public class GameWindow extends JFrame {
         setVisible(true);
     }
 
-    // ── Navegación de pantallas ────────────────────────────────────────────
 
     private void showMainMenu() {
         cardPanel.removeAll();

@@ -54,7 +54,6 @@ public class ShopScreen extends JPanel {
         add(buildFooter(listener), BorderLayout.SOUTH);
     }
 
-    // ── Fondo ──────────────────────────────────────────────────────────────
 
     private void loadBackground() {
         try (InputStream is = getClass().getResourceAsStream("/sprites/backgrounds/shop-bg.png")) {
@@ -78,7 +77,6 @@ public class ShopScreen extends JPanel {
         g2.fillRect(0, 0, w, h);
     }
 
-    // ── Header: placa tallada + monedero ───────────────────────────────────
 
     private JPanel buildHeader(GameState state) {
         JPanel header = new JPanel(new BorderLayout(0, 0)) {
@@ -95,7 +93,6 @@ public class ShopScreen extends JPanel {
         header.setOpaque(false);
         header.setBorder(BorderFactory.createEmptyBorder(12, 24, 12, 24));
 
-        // ── Placa de piedra tallada (título) ──────────────────────────────
         JPanel plaque = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g;
@@ -169,7 +166,6 @@ public class ShopScreen extends JPanel {
             }
         };
 
-        // ── Monedero de monedas ───────────────────────────────────────────
         goldPanel = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g;
@@ -229,7 +225,6 @@ public class ShopScreen extends JPanel {
         return header;
     }
 
-    // ── Grilla de tarjetas ─────────────────────────────────────────────────
 
     private JPanel buildGrid(GameState state) {
         JPanel wrapper = new JPanel(new GridBagLayout());
@@ -315,7 +310,6 @@ public class ShopScreen extends JPanel {
         return wrapper;
     }
 
-    // ── Footer ─────────────────────────────────────────────────────────────
 
     private JPanel buildFooter(Listener listener) {
         JPanel footer = new JPanel() {
@@ -369,7 +363,6 @@ public class ShopScreen extends JPanel {
         return footer;
     }
 
-    // ── Tarjeta de ítem ────────────────────────────────────────────────────
 
     private class ItemCard extends JPanel {
 
@@ -441,7 +434,6 @@ public class ShopScreen extends JPanel {
             boolean poor  = !canAfford && !maxed;
             Color rarity  = rarityColor(potion.getRarity());
 
-            // ── Coordenadas de la tarjeta según estado hover (efecto escala) ──
             int cx, cy, cw, ch;
             if (hover && canAfford) {
                 // Escala ~105%: expande hacia los bordes del padding
@@ -454,7 +446,6 @@ public class ShopScreen extends JPanel {
 
             Composite original = g2.getComposite();
 
-            // ── Outer glow en hover ────────────────────────────────────────
             if (hover && canAfford) {
                 Color glow = new Color(0xD0, 0xA0, 0x40);
                 for (int i = 5; i >= 1; i--) {
@@ -466,7 +457,6 @@ public class ShopScreen extends JPanel {
                 g2.setStroke(new BasicStroke(1f));
             }
 
-            // ── Colores del fondo y borde ──────────────────────────────────
             Color bgColor, borderColor;
             if (maxed) {
                 bgColor     = new Color(0x08, 0x06, 0x10, 185);
@@ -482,23 +472,19 @@ public class ShopScreen extends JPanel {
                 borderColor = rarity;
             }
 
-            // ── Fondo ─────────────────────────────────────────────────────
             g2.setColor(bgColor);
             g2.fillRoundRect(cx, cy, cw, ch, 12, 12);
 
-            // ── Franja de rareza superior ─────────────────────────────────
             g2.setColor(new Color(borderColor.getRed(), borderColor.getGreen(),
                                   borderColor.getBlue(), hover ? 90 : 55));
             g2.fillRoundRect(cx, cy, cw, 38, 12, 12);
             g2.fillRect(cx, cy + 20, cw, 18);
 
-            // ── Borde principal ───────────────────────────────────────────
             g2.setColor(borderColor);
             g2.setStroke(new BasicStroke(hover ? 2.2f : 1.5f));
             g2.drawRoundRect(cx, cy, cw, ch, 12, 12);
             g2.setStroke(new BasicStroke(1f));
 
-            // ── Aura radial detrás del ícono ──────────────────────────────
             int ix = cx + (cw - ICON_SZ) / 2;
             int iy = cy + 10;
             float auraR = ICON_SZ * 0.85f;
@@ -516,7 +502,6 @@ public class ShopScreen extends JPanel {
             g2.fillOval((int)(ix + ICON_SZ/2f - auraR), (int)(iy + ICON_SZ/2f - auraR),
                         (int)(auraR * 2), (int)(auraR * 2));
 
-            // ── Ícono ─────────────────────────────────────────────────────
             if (icon != null) {
                 float iconAlpha = poor ? 0.30f : 1f;
                 g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, iconAlpha));
@@ -524,7 +509,6 @@ public class ShopScreen extends JPanel {
                 g2.setComposite(original);
             }
 
-            // ── Overlay gris (sin oro) ────────────────────────────────────
             if (poor) {
                 g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.45f));
                 g2.setColor(new Color(0x18, 0x14, 0x10));
@@ -532,12 +516,10 @@ public class ShopScreen extends JPanel {
                 g2.setComposite(original);
             }
 
-            // ── Línea separadora ──────────────────────────────────────────
             g2.setColor(new Color(borderColor.getRed(), borderColor.getGreen(),
                                   borderColor.getBlue(), 70));
             g2.drawLine(cx + 10, cy + 92, cx + cw - 10, cy + 92);
 
-            // ── Nombre ────────────────────────────────────────────────────
             g2.setFont(Theme.labelFont(13f));
             FontMetrics fm = g2.getFontMetrics();
             String name = potion.getName();
@@ -548,13 +530,11 @@ public class ShopScreen extends JPanel {
             g2.setColor(poor ? new Color(0x60, 0x54, 0x3A) : new Color(0xE8, 0xD0, 0x90));
             g2.drawString(name, nx, ny);
 
-            // ── Descripción ───────────────────────────────────────────────
             g2.setFont(Theme.bodyFont(10f));
             fm = g2.getFontMetrics();
             g2.setColor(poor ? new Color(0x48, 0x40, 0x30) : new Color(0x98, 0x88, 0x68));
             drawWrapped(g2, potion.getDescription(), cx + 8, cy + 124, cw - 16, fm);
 
-            // ── Stock "En inventario: X/5" ────────────────────────────────
             int maxStack = state.getInventory().getMaxPerPotion();
             int cnt      = stockCount();
             g2.setFont(Theme.bodyFont(10f));
@@ -570,7 +550,6 @@ public class ShopScreen extends JPanel {
             g2.setColor(stockCol);
             g2.drawString(stock, sx, sy);
 
-            // ── Precio / estado ───────────────────────────────────────────
             Font priceFont = Theme.labelFont(maxed ? 11f : poor ? 12f : 15f);
             g2.setFont(priceFont);
             fm = g2.getFontMetrics();
@@ -625,7 +604,6 @@ public class ShopScreen extends JPanel {
         }
     }
 
-    // ── Tarjeta de ítem épico ──────────────────────────────────────────────
 
     private class RareItemCard extends JPanel {
 

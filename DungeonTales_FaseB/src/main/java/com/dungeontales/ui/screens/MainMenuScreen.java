@@ -27,12 +27,10 @@ public class MainMenuScreen extends JPanel {
         setOpaque(true);
         setBackground(new Color(0x04, 0x04, 0x06));
 
-        // Todo el contenido en una sola columna centrada
         JPanel content = new JPanel();
         content.setOpaque(false);
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
 
-        // ── Bloque de título con fondo oscuro (tapa la luna) ──────────────
         JLabel subtitle   = shadowLabel("PARADIGMA ORIENTADO A OBJETOS  —  TPO",
                                         Theme.labelFont(11f),
                                         new Color(0xD4, 0xC0, 0x88));
@@ -65,18 +63,15 @@ public class MainMenuScreen extends JPanel {
         titleBlock.add(Box.createVerticalStrut(10));
         titleBlock.add(tagline);
 
-        // ── Botones ──
         JPanel newBtn  = buildMenuButton("Nueva Partida",  true,  () -> listener.onNewGame());
         JPanel loadBtn = buildMenuButton("Cargar Partida", SaveManager.saveExists(),
                                         () -> { if (SaveManager.saveExists()) listener.onLoadGame(); });
 
-        // ── Versión con sombra ──
         JLabel version = shadowLabel("v1.0  —  Fase B  |  Paradigma Orientado a Objetos",
                                     Theme.bodyFont(10f),
                                     new Color(0xA8, 0x96, 0x6C));
         version.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // ── Ensamblar ──
         content.add(Box.createVerticalStrut(20));
         content.add(titleBlock);
         content.add(Box.createVerticalStrut(44));
@@ -89,7 +84,6 @@ public class MainMenuScreen extends JPanel {
         add(content);
     }
 
-    // ── Fondo ──────────────────────────────────────────────────────────────
 
     private void loadBackground() {
         try (InputStream is = getClass().getResourceAsStream("/sprites/backgrounds/menu-bg.png")) {
@@ -201,14 +195,12 @@ public class MainMenuScreen extends JPanel {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 int w = getWidth(), h = getHeight();
 
-                // Fondo
                 Color bg = hover && enabled
                     ? new Color(0x20, 0x18, 0x0A, 210)
                     : bgColor;
                 g2.setColor(bg);
                 g2.fillRoundRect(0, 0, w - 1, h - 1, 8, 8);
 
-                // Borde exterior
                 g2.setColor(hover && enabled
                     ? new Color(0xC8, 0xA0, 0x50)
                     : borderColor);
@@ -254,7 +246,6 @@ public class MainMenuScreen extends JPanel {
         return btn;
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────
 
     /** JLabel con sombra paralela: dibuja el string en negro (+2,+2) y encima en el color dado. */
     private JLabel shadowLabel(String text, Font font, Color color) {
@@ -267,10 +258,8 @@ public class MainMenuScreen extends JPanel {
                 FontMetrics fm = g2.getFontMetrics();
                 int tx = (getWidth()  - fm.stringWidth(text)) / 2;
                 int ty = fm.getAscent();
-                // Sombra
                 g2.setColor(new Color(0, 0, 0, 210));
                 g2.drawString(text, tx + 2, ty + 2);
-                // Texto principal
                 g2.setColor(color);
                 g2.drawString(text, tx, ty);
             }

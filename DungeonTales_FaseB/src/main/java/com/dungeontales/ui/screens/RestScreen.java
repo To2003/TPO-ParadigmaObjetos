@@ -24,7 +24,6 @@ public class RestScreen extends JPanel {
         setOpaque(true);
         setBackground(new Color(0x06, 0x08, 0x04));
 
-        // Panel central con contenido
         JPanel content = buildContent(state, listener);
 
         GridBagConstraints gbc = new GridBagConstraints();
@@ -33,7 +32,6 @@ public class RestScreen extends JPanel {
         add(content, gbc);
     }
 
-    // ── Fondo ──────────────────────────────────────────────────────────────
 
     private void loadBackground() {
         try (InputStream is = getClass().getResourceAsStream("/sprites/backgrounds/rest-bg.png")) {
@@ -69,7 +67,6 @@ public class RestScreen extends JPanel {
         g2.fillRect(0, 0, w, h);
     }
 
-    // ── Contenido central ──────────────────────────────────────────────────
 
     private JPanel buildContent(GameState state, Listener listener) {
         JPanel panel = new JPanel() {
@@ -81,12 +78,10 @@ public class RestScreen extends JPanel {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setPreferredSize(new Dimension(500, 480));
 
-        // ── Ícono hoguera ──
         JLabel fireIcon = new JLabel("🔥") {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                // Dibujar ícono de llama con Graphics2D
                 int cx = getWidth() / 2, cy = getHeight() / 2;
                 // Llama exterior (naranja)
                 g2.setColor(new Color(0xE8, 0x70, 0x10, 200));
@@ -106,26 +101,20 @@ public class RestScreen extends JPanel {
         };
         fireIcon.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Línea decorativa superior
         JPanel topDeco = buildDecoLine();
 
-        // Título
         JLabel title = new JLabel("CAMPAMENTO DE DESCANSO");
         title.setFont(Theme.titleFont(28f));
         title.setForeground(new Color(0xD4, 0xAA, 0x50));
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Línea decorativa inferior del título
         JPanel midDeco = buildDecoLine();
 
-        // Subtítulo
         JLabel sub1 = centeredLabel("Un lugar tranquilo para recuperar fuerzas.", Theme.bodyFont(14f), new Color(0xB0, 0x98, 0x78));
         JLabel sub2 = centeredLabel("El descanso te hará más fuerte para lo que viene.", Theme.bodyFont(14f), new Color(0xB0, 0x98, 0x78));
 
-        // Separador de diamantes
         JLabel deco = centeredLabel("◆  ◇  ◆", Theme.labelFont(11f), new Color(0x80, 0x68, 0x40));
 
-        // Botones
         JPanel healBtn   = buildRestButton(
             iconHeal, "Curar toda la party", "(+30% HP)",
             new Color(0x14, 0x3A, 0x20), new Color(0x28, 0x70, 0x3A),
@@ -183,7 +172,6 @@ public class RestScreen extends JPanel {
             }
         );
 
-        // ── Pergamino de texto ─────────────────────────────────────────────
         JPanel parchment = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g;
@@ -233,7 +221,6 @@ public class RestScreen extends JPanel {
         return panel;
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────
 
     private JPanel buildRestButton(BufferedImage iconImg, String label, String sublabel,
                                     Color bgColor, Color borderColor,
@@ -246,7 +233,6 @@ public class RestScreen extends JPanel {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 int w = getWidth(), h = getHeight();
 
-                // Fondo semitransparente
                 Color bg = hover
                     ? new Color(bgColor.getRed() + 18, bgColor.getGreen() + 18,
                                 bgColor.getBlue() + 18, 210)
@@ -254,7 +240,6 @@ public class RestScreen extends JPanel {
                 g2.setColor(bg);
                 g2.fillRoundRect(0, 0, w - 1, h - 1, 12, 12);
 
-                // Borde
                 g2.setColor(hover
                     ? new Color(Math.min(255, borderColor.getRed() + 30),
                                 Math.min(255, borderColor.getGreen() + 30),
@@ -281,7 +266,6 @@ public class RestScreen extends JPanel {
         btn.setAlignmentX(Component.CENTER_ALIGNMENT);
         btn.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
 
-        // Ícono circular con PNG
         JPanel iconPanel = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g;
@@ -298,7 +282,6 @@ public class RestScreen extends JPanel {
                 g2.drawOval(cx - r, cy - r, r * 2, r * 2);
                 g2.setStroke(new BasicStroke(1f));
 
-                // Ícono PNG centrado dentro del círculo
                 if (iconImg != null) {
                     int iconSize = r * 2 - 10;
                     // Clip circular para que el ícono no salga del borde
@@ -314,7 +297,6 @@ public class RestScreen extends JPanel {
         };
         iconPanel.setOpaque(false);
 
-        // Textos
         JPanel textPanel = new JPanel();
         textPanel.setOpaque(false);
         textPanel.setLayout(new BoxLayout(textPanel, BoxLayout.Y_AXIS));

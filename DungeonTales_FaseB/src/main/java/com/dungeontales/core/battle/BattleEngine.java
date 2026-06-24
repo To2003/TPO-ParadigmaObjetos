@@ -36,7 +36,6 @@ public class BattleEngine {
         advanceToNextCombatant();
     }
 
-    // ── Inicialización ─────────────────────────────────────────────────────
 
     private void buildTurnOrder() {
         turnOrder = new ArrayList<>();
@@ -92,13 +91,7 @@ public class BattleEngine {
         List<BattleEvent> events = new ArrayList<>();
         if (combatant instanceof Character c) {
             c.startTurn();
-            // Veneno
-            if (c.hasEffect(StatusEffect.Type.POISON)) {
-                // El tick ya se aplicó en startTurn, pero el daño se aplicó antes
-                // Necesitamos trackear el daño de veneno
-            }
         } else if (combatant instanceof Enemy e) {
-            // Troll regeneration
             if (e.getSpriteName().equals("troll")) {
                 int regenBefore = e.getHp();
                 e.startTurn();
@@ -112,7 +105,6 @@ public class BattleEngine {
         return events;
     }
 
-    // ── Turno del jugador ──────────────────────────────────────────────────
 
     public Object getCurrentCombatant() {
         if (turnIndex >= turnOrder.size()) return null;
@@ -224,7 +216,6 @@ public class BattleEngine {
         return events;
     }
 
-    // ── Turno del enemigo ──────────────────────────────────────────────────
 
     /**
      * Procesa turnos de enemigos automáticamente hasta que llegue
@@ -312,7 +303,6 @@ public class BattleEngine {
         return events;
     }
 
-    // ── IA de personajes NPC (Santi) ──────────────────────────────────────
 
     private List<BattleEvent> processNpcCharacterAction(Character npc) {
         List<BattleEvent> events = new ArrayList<>();
@@ -488,7 +478,6 @@ public class BattleEngine {
         return events;
     }
 
-    // ── Helpers internos ──────────────────────────────────────────────────
 
     private List<BattleEvent> applyDamageAbility(Character actor, Ability ab, Enemy target) {
         List<BattleEvent> events = new ArrayList<>();
@@ -541,7 +530,6 @@ public class BattleEngine {
         return events;
     }
 
-    // ── Helpers de pasivos ────────────────────────────────────────────────
 
     /** Veredicto del Alba: cura al aliado vivo con menos HP% un 10% del daño. */
     private void healWeakestAlly(Character actor, int dmg, List<BattleEvent> events) {
@@ -649,7 +637,6 @@ public class BattleEngine {
         return o instanceof Character c ? c.getName() : ((Enemy)o).getName();
     }
 
-    // ── Getters ───────────────────────────────────────────────────────────
     public boolean isBattleOver()      { return battleOver; }
     public boolean isPlayerWon()       { return playerWon; }
     public boolean isPartyTookDamage() { return partyTookDamage; }

@@ -19,7 +19,6 @@ import java.util.List;
 
 public class PartyScreen extends JDialog {
 
-    // ── Colores ───────────────────────────────────────────────────────────────
     private static final Color BG        = new Color(0x14, 0x0C, 0x06);
     private static final Color LEFT_BG   = new Color(0x1C, 0x12, 0x08);
     private static final Color RIGHT_BG  = new Color(0x10, 0x0A, 0x06);
@@ -40,7 +39,6 @@ public class PartyScreen extends JDialog {
     private static final int CELL_SZ  = 72;
     private static final int GRID_COLS= 5;
 
-    // ── Estado ────────────────────────────────────────────────────────────────
     private final GameState       state;
     private final List<Character> party;
     private int                   selectedIdx = 0;
@@ -49,7 +47,6 @@ public class PartyScreen extends JDialog {
     private JPanel bodyPanel;
     private JLabel tooltipLabel;
 
-    // ── Constructor ───────────────────────────────────────────────────────────
 
     public PartyScreen(Frame parent, GameState state) {
         super(parent, true);
@@ -91,7 +88,6 @@ public class PartyScreen extends JDialog {
         setContentPane(root);
     }
 
-    // ── Header ────────────────────────────────────────────────────────────────
 
     private JPanel buildHeader() {
         JPanel h = new JPanel(new BorderLayout()) {
@@ -111,7 +107,6 @@ public class PartyScreen extends JDialog {
         title.setFont(Theme.titleFont(20f));
         title.setForeground(GOLD);
 
-        // ── Derecha: selector + cerrar ────────────────────────────────────
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         right.setOpaque(false);
 
@@ -146,7 +141,6 @@ public class PartyScreen extends JDialog {
         return h;
     }
 
-    // ── Body ──────────────────────────────────────────────────────────────────
 
     private JPanel buildBody() {
         JPanel body = new JPanel(new BorderLayout(2, 0));
@@ -165,7 +159,6 @@ public class PartyScreen extends JDialog {
         root.repaint();
     }
 
-    // ── Panel izquierdo: personaje ────────────────────────────────────────────
 
     private JPanel buildLeftPanel(Character c) {
         JPanel p = new JPanel() {
@@ -265,7 +258,6 @@ public class PartyScreen extends JDialog {
         return p;
     }
 
-    // ── Retrato (mitad superior zoomeada) ─────────────────────────────────────
 
     private JPanel buildPortrait(Character c) {
         BufferedImage stand = loadStand(c.getSpriteName());
@@ -312,7 +304,6 @@ public class PartyScreen extends JDialog {
         return portrait;
     }
 
-    // ── Panel derecho: inventario ─────────────────────────────────────────────
 
     private JPanel buildRightPanel() {
         JPanel p = new JPanel(new BorderLayout(0, 8));
@@ -491,7 +482,6 @@ public class PartyScreen extends JDialog {
         return tabs;
     }
 
-    // ── Helpers de layout ────────────────────────────────────────────────────
 
     private JPanel buildBar(String label, int current, int max, Color fill) {
         JPanel row = new JPanel(new BorderLayout(5, 0));
@@ -802,7 +792,6 @@ public class PartyScreen extends JDialog {
         return line;
     }
 
-    // ── Carga del sprite Stand ────────────────────────────────────────────────
 
     private BufferedImage loadStand(String spriteName) {
         String base = java.lang.Character.toUpperCase(spriteName.charAt(0))
